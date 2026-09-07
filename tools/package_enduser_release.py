@@ -56,6 +56,7 @@ def package_release(include_models: bool = True, create_zip: bool = True):
         "requirements.txt",
         "SmartCleaner.bat",
         "SmartCleaner_Debug.bat",
+        "Install_Dependencies.bat",
         "Run_SmartCleaner.bat",
         "Run_SmartCleaner.vbs",
         "Run_Server.bat",
