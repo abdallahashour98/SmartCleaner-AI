@@ -31,13 +31,15 @@ from PySide6.QtWidgets import (
     QMenu, QAbstractItemView, QPlainTextEdit, QProgressDialog, QComboBox,
     QScrollArea, QGroupBox
 )
-from PySide6.QtCore import Qt, QThread, Signal, QRectF, QSize, QBuffer, QEvent, QPoint, QPointF, QTimer, QEventLoop
+from PySide6.QtCore import Qt, QThread, Signal, QRectF, QSize, QBuffer, QEvent, QPoint, QPointF, QTimer, QEventLoop, QUrl
 from PySide6.QtGui import (
     QShortcut,
     QFont, QColor, QPixmap, QPen, QBrush, QIcon, QPainter, QImage,
-    QPainterPath, QPainterPathStroker, QTextCursor, QKeySequence, QKeyEvent, QPolygonF
+    QPainterPath, QPainterPathStroker, QTextCursor, QKeySequence, QKeyEvent, QPolygonF,
+    QDesktopServices
 )
 
+import webbrowser
 import tempfile
 import shutil
 import re
@@ -397,6 +399,28 @@ QScrollBar::handle:horizontal:hover {
 }
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
     width: 0px;
+}
+QMenu {
+    background-color: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 6px;
+    color: #e2e8f0;
+}
+QMenu::item {
+    padding: 8px 24px 8px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+}
+QMenu::item:hover, QMenu::item:selected {
+    background-color: #0284c7;
+    color: #ffffff;
+}
+QMenu::separator {
+    height: 1px;
+    background-color: #1e293b;
+    margin: 4px 6px;
 }
 """
 
@@ -826,6 +850,270 @@ class ShortcutsSettingsDialog(QDialog):
 
     def get_shortcuts(self) -> dict:
         return self.shortcuts
+
+
+DEVELOPER_DISCORD_ID = "700498157821231144"
+DEVELOPER_DISCORD_URL = f"https://discord.com/users/{DEVELOPER_DISCORD_ID}"
+
+
+class DiscordContactDialog(QDialog):
+    """Dialog displaying developer's Discord info, opening Discord profile, and copying ID."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("التواصل مع المبرمج - Discord")
+        self.setFixedWidth(460)
+        self.setStyleSheet(DARK_NAVY_STYLESHEET)
+
+        # Automatically copy ID to clipboard and attempt to open Discord
+        try:
+            QApplication.clipboard().setText(DEVELOPER_DISCORD_ID)
+        except Exception:
+            pass
+
+        try:
+            QDesktopServices.openUrl(QUrl(DEVELOPER_DISCORD_URL))
+            webbrowser.open(DEVELOPER_DISCORD_URL)
+        except Exception:
+            pass
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(14)
+        layout.setContentsMargins(22, 22, 22, 22)
+
+        hdr = QLabel("💬 التواصل مع المبرمج عبر ديسكورد")
+        hdr.setFont(QFont("Segoe UI", 14, QFont.Bold))
+        hdr.setStyleSheet("color: #5865F2;")  # Discord Blurple
+        layout.addWidget(hdr)
+
+        info_lbl = QLabel(
+            "تم فتح صفحة حساب المبرمج على Discord في المتصفح تلقائياً.\n"
+            "يمكنك أيضاً إضافة المبرمج كصديق أو إرسال رسالة مباشرة باستخدام المعرف التالي:"
+        )
+        info_lbl.setWordWrap(True)
+        info_lbl.setStyleSheet("color: #cbd5e1; font-size: 12px; line-height: 1.4;")
+        layout.addWidget(info_lbl)
+
+        id_card = QFrame()
+        id_card.setStyleSheet("""
+            QFrame {
+                background-color: #0f172a;
+                border: 1px solid #5865F2;
+                border-radius: 10px;
+                padding: 12px;
+            }
+        """)
+        id_layout = QVBoxLayout(id_card)
+        id_layout.setSpacing(8)
+
+        id_title = QLabel("🎮 Discord User ID:")
+        id_title.setStyleSheet("color: #94a3b8; font-size: 11px; font-weight: bold;")
+        id_layout.addWidget(id_title)
+
+        self.id_box = QLineEdit(DEVELOPER_DISCORD_ID)
+        self.id_box.setReadOnly(True)
+        self.id_box.setAlignment(Qt.AlignCenter)
+        self.id_box.setFont(QFont("Consolas", 14, QFont.Bold))
+        self.id_box.setStyleSheet("""
+            QLineEdit {
+                background-color: #090d16;
+                color: #5865F2;
+                border: 1px solid #334155;
+                border-radius: 6px;
+                padding: 6px;
+                letter-spacing: 1px;
+            }
+        """)
+        id_layout.addWidget(self.id_box)
+
+        self.status_lbl = QLabel("✅ تم نسخ الآيدي إلى الحافظة تلقائياً!")
+        self.status_lbl.setAlignment(Qt.AlignCenter)
+        self.status_lbl.setStyleSheet("color: #22c55e; font-size: 11px; font-weight: 600;")
+        id_layout.addWidget(self.status_lbl)
+
+        layout.addWidget(id_card)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(10)
+
+        copy_btn = QPushButton("📋 نسخ الآيدي")
+        copy_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #1e293b;
+                color: #f1f5f9;
+                border: 1px solid #334155;
+                border-radius: 6px;
+                padding: 8px 14px;
+                font-weight: 600;
+            }
+            QPushButton:hover { background-color: #334155; color: #38bdf8; border-color: #0284c7; }
+        """)
+        copy_btn.clicked.connect(self._copy_id)
+        btn_row.addWidget(copy_btn)
+
+        open_web_btn = QPushButton("🌐 فتح الرابط")
+        open_web_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #5865F2;
+                color: #ffffff;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #4752c4; }
+        """)
+        open_web_btn.clicked.connect(self._open_url)
+        btn_row.addWidget(open_web_btn)
+
+        close_btn = QPushButton("إغلاق")
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #090d16;
+                color: #94a3b8;
+                border: 1px solid #1e293b;
+                border-radius: 6px;
+                padding: 8px 14px;
+            }
+            QPushButton:hover { background-color: #1e293b; color: #f8fafc; }
+        """)
+        close_btn.clicked.connect(self.accept)
+        btn_row.addWidget(close_btn)
+
+        layout.addLayout(btn_row)
+
+    def _copy_id(self):
+        try:
+            QApplication.clipboard().setText(DEVELOPER_DISCORD_ID)
+            self.status_lbl.setText("✅ تم نسخ الآيدي مجدداً!")
+            self.status_lbl.setStyleSheet("color: #22c55e; font-size: 11px; font-weight: 600;")
+        except Exception:
+            pass
+
+    def _open_url(self):
+        try:
+            QDesktopServices.openUrl(QUrl(DEVELOPER_DISCORD_URL))
+            webbrowser.open(DEVELOPER_DISCORD_URL)
+        except Exception:
+            pass
+
+
+class AboutAppDialog(QDialog):
+    """Dialog showing application and version information."""
+    def __init__(self, version: str = "1.0.0", parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("معلومات البرنامج والإصدار")
+        self.setFixedWidth(460)
+        self.setStyleSheet(DARK_NAVY_STYLESHEET)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(14)
+        layout.setContentsMargins(22, 22, 22, 22)
+
+        hdr_row = QHBoxLayout()
+        hdr_lbl = QLabel("⚡ SmartCleaner-AI")
+        hdr_lbl.setFont(QFont("Segoe UI", 15, QFont.Bold))
+        hdr_lbl.setStyleSheet("color: #38bdf8;")
+
+        ver_badge = QLabel(f"v{version}")
+        ver_badge.setStyleSheet("background: #0284c7; color: white; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: bold;")
+
+        hdr_row.addWidget(hdr_lbl)
+        hdr_row.addWidget(ver_badge)
+        hdr_row.addStretch()
+        layout.addLayout(hdr_row)
+
+        desc_lbl = QLabel(
+            "الاستوديو المتكامل لتنظيف وتبييض صفحات المانجا والكوميكس والويب تون "
+            "باستخدام الذكاء الاصطناعي ونماذج كشف الفقاعات المتقدمة (YOLOv8 + ComicTextDetector) "
+            "والترميم الذكي (IOPaint + Fast White-Fill)."
+        )
+        desc_lbl.setWordWrap(True)
+        desc_lbl.setStyleSheet("color: #94a3b8; font-size: 12px; line-height: 1.5;")
+        layout.addWidget(desc_lbl)
+
+        info_card = QFrame()
+        info_card.setStyleSheet("""
+            QFrame {
+                background-color: #0f172a;
+                border: 1px solid #1e293b;
+                border-radius: 8px;
+                padding: 10px;
+            }
+        """)
+        ic_layout = QVBoxLayout(info_card)
+        ic_layout.setSpacing(6)
+
+        ic_v = QLabel(f"• الإصدار الحالي: v{version} (مستقر)")
+        ic_v.setStyleSheet("color: #e2e8f0; font-size: 11px;")
+        ic_layout.addWidget(ic_v)
+
+        ic_dev = QLabel(f"• ديسكورد المبرمج: {DEVELOPER_DISCORD_ID}")
+        ic_dev.setStyleSheet("color: #e2e8f0; font-size: 11px;")
+        ic_layout.addWidget(ic_dev)
+
+        ic_update = QLabel("• التحديثات: مدعومة بنظام باتشات خفيف وتلقائي")
+        ic_update.setStyleSheet("color: #e2e8f0; font-size: 11px;")
+        ic_layout.addWidget(ic_update)
+
+        layout.addWidget(info_card)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(10)
+
+        contact_btn = QPushButton("💬 تواصل مع المبرمج")
+        contact_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #1e293b;
+                color: #5865F2;
+                border: 1px solid #5865F2;
+                border-radius: 6px;
+                padding: 7px 12px;
+                font-weight: 600;
+            }
+            QPushButton:hover { background-color: #5865F2; color: white; }
+        """)
+        contact_btn.clicked.connect(self._open_contact)
+        btn_row.addWidget(contact_btn)
+
+        check_btn = QPushButton("🔄 فحص التحديثات")
+        check_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0f172a;
+                color: #38bdf8;
+                border: 1px solid #0284c7;
+                border-radius: 6px;
+                padding: 7px 12px;
+                font-weight: 600;
+            }
+            QPushButton:hover { background-color: #0284c7; color: white; }
+        """)
+        check_btn.clicked.connect(self._check_updates)
+        btn_row.addWidget(check_btn)
+
+        close_btn = QPushButton("إغلاق")
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #090d16;
+                color: #94a3b8;
+                border: 1px solid #1e293b;
+                border-radius: 6px;
+                padding: 7px 14px;
+            }
+            QPushButton:hover { background-color: #1e293b; color: #f8fafc; }
+        """)
+        close_btn.clicked.connect(self.accept)
+        btn_row.addWidget(close_btn)
+
+        layout.addLayout(btn_row)
+
+    def _open_contact(self):
+        self.accept()
+        dlg = DiscordContactDialog(parent=self.parent())
+        dlg.exec()
+
+    def _check_updates(self):
+        self.accept()
+        check_for_updates_gui(parent_widget=self.parent(), silent=False)
 
 
 class PageViewerWidget(QGraphicsView):
@@ -3893,34 +4181,46 @@ class CleanerGUI(QMainWindow):
         header_top_row = QHBoxLayout()
         header_top_row.setSpacing(10)
 
+        # Left symmetry spacer so the title remains centered
+        left_dummy_spacer = QWidget()
+        left_dummy_spacer.setFixedSize(36, 36)
+
         title_label = QLabel("⚡ SmartCleaner-AI")
         title_label.setFont(QFont("Segoe UI", 16, QFont.Bold))
         title_label.setStyleSheet("color: #38bdf8; letter-spacing: 0.5px;")
 
-        ver_badge = QLabel(f"v{getattr(self, 'current_app_version', '1.0.0')}")
-        ver_badge.setStyleSheet("background: #0f172a; color: #38bdf8; border: 1px solid #0284c7; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: bold;")
-
-        check_update_btn = QPushButton("🔄 التحقق من التحديثات")
-        check_update_btn.setMinimumHeight(28)
-        check_update_btn.setStyleSheet("""
+        # Three-Dots Options Menu Button
+        self.menu_dots_btn = QPushButton("⋮")
+        self.menu_dots_btn.setFixedSize(36, 36)
+        self.menu_dots_btn.setToolTip("خيارات إضافية (معلومات الإصدار، التحديثات، التواصل مع المبرمج)")
+        self.menu_dots_btn.setCursor(Qt.PointingHandCursor)
+        self.menu_dots_btn.setStyleSheet("""
             QPushButton {
-                background: #0f172a;
-                color: #38bdf8;
-                border: 1px solid #0284c7;
-                border-radius: 6px;
-                padding: 3px 12px;
-                font-size: 11px;
-                font-weight: 600;
+                background-color: #0f172a;
+                color: #94a3b8;
+                border: 1px solid #1e293b;
+                border-radius: 8px;
+                font-size: 20px;
+                font-weight: bold;
+                padding-bottom: 2px;
             }
-            QPushButton:hover { background: #0284c7; color: white; }
+            QPushButton:hover {
+                background-color: #1e293b;
+                color: #38bdf8;
+                border-color: #0284c7;
+            }
+            QPushButton:pressed {
+                background-color: #0284c7;
+                color: #ffffff;
+            }
         """)
-        check_update_btn.clicked.connect(lambda: check_for_updates_gui(self, silent=False))
+        self.menu_dots_btn.clicked.connect(self.show_three_dots_menu)
 
+        header_top_row.addWidget(left_dummy_spacer)
         header_top_row.addStretch()
         header_top_row.addWidget(title_label)
-        header_top_row.addWidget(ver_badge)
         header_top_row.addStretch()
-        header_top_row.addWidget(check_update_btn)
+        header_top_row.addWidget(self.menu_dots_btn)
 
         subtitle_label = QLabel("Dedicated Multi-Page Manga Inpainting & Intelligent Bubble Whitener")
         subtitle_label.setFont(QFont("Segoe UI", 9))
@@ -5347,6 +5647,59 @@ class CleanerGUI(QMainWindow):
                 self.activateWindow()
         except Exception as e:
             QMessageBox.critical(self, "Error Loading Project", f"Could not load project:\n{e}")
+
+    def show_three_dots_menu(self):
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: #0f172a;
+                border: 1px solid #1e293b;
+                border-radius: 8px;
+                padding: 6px;
+                color: #e2e8f0;
+            }
+            QMenu::item {
+                padding: 9px 22px 9px 14px;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 500;
+            }
+            QMenu::item:hover, QMenu::item:selected {
+                background-color: #0284c7;
+                color: #ffffff;
+            }
+            QMenu::separator {
+                height: 1px;
+                background-color: #1e293b;
+                margin: 4px 6px;
+            }
+        """)
+
+        about_act = menu.addAction("ℹ️ معلومات عن الإصدار والتطبيق")
+        about_act.triggered.connect(self.show_about_dialog)
+
+        update_act = menu.addAction("🔄 التحقق من وجود تحديثات")
+        update_act.triggered.connect(lambda: check_for_updates_gui(self, silent=False))
+
+        menu.addSeparator()
+
+        discord_act = menu.addAction("💬 التواصل مع المبرمج (Discord)")
+        discord_act.triggered.connect(self.open_developer_discord)
+
+        # Position popup menu directly under the three-dots button aligned with its right edge
+        hint = menu.sizeHint()
+        btn_pos = self.menu_dots_btn.mapToGlobal(QPoint(0, 0))
+        x = btn_pos.x() + self.menu_dots_btn.width() - hint.width()
+        y = btn_pos.y() + self.menu_dots_btn.height() + 4
+        menu.exec(QPoint(x, y))
+
+    def show_about_dialog(self):
+        dlg = AboutAppDialog(version=self.current_app_version, parent=self)
+        dlg.exec()
+
+    def open_developer_discord(self):
+        dlg = DiscordContactDialog(parent=self)
+        dlg.exec()
 
 
 def main():

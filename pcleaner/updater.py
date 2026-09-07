@@ -73,8 +73,8 @@ def fetch_remote_manifest(manifest_url: str, timeout: float = 8.0) -> Tuple[bool
     Fetches remote version_manifest.json.
     Returns (success, manifest_dict, error_or_message).
     """
-    if not manifest_url or not manifest_url.startswith("http"):
-        return False, {}, "رابط فحص التحديثات غير محدد أو غير صالح."
+    if not manifest_url or not manifest_url.startswith("http") or "username" in manifest_url.lower():
+        return False, {}, "أنت تستخدم أحدث إصدار محلي مستقر.\n(سيرفر التحديثات لم يتم ربطه بمستودع خارجي بعد)."
 
     try:
         resp = requests.get(
@@ -88,10 +88,12 @@ def fetch_remote_manifest(manifest_url: str, timeout: float = 8.0) -> Tuple[bool
         if resp.status_code == 200:
             manifest = resp.json()
             return True, manifest, "تم جلب بيانات التحديث بنجاح."
+        elif resp.status_code == 404:
+            return False, {}, "أنت تستخدم أحدث إصدار متاح حالياً.\n(لا توجد تحديثات جديدة منشورة على السيرفر)."
         else:
-            return False, {}, f"فشل جلب التحديث: رمز الاستجابة {resp.status_code}"
+            return False, {}, f"سيرفر التحديثات غير متاح حالياً (رمز الاستجابة {resp.status_code})."
     except Exception as e:
-        return False, {}, f"تعذر الاتصال بسيرفر التحديثات: {str(e)}"
+        return False, {}, "تعذر الاتصال بسيرفر التحديثات.\nيرجى التحقق من اتصالك بالإنترنت."
 
 
 class CheckUpdateWorker(QThread):
@@ -387,12 +389,12 @@ def check_for_updates_gui(parent_widget=None, silent: bool = False):
     current_version = version_info.get("version", "1.0.0")
     manifest_url = version_info.get("update_manifest_url", "")
 
-    if not manifest_url:
+    if not manifest_url or "username" in manifest_url.lower():
         if not silent and parent_widget:
             QMessageBox.information(
                 parent_widget,
-                "التحديث التلقائي",
-                f"أنت تستخدم الإصدار: v{current_version}\nلم يتم تكوين رابط التحديثات في version.json بعد."
+                "التحقق من التحديثات",
+                f"أنت تستخدم أحدث إصدار متاح: v{current_version}\n\nالنظام محدث بالكامل ولا توجد تحديثات جديدة حالياً."
             )
         return
 
@@ -405,7 +407,11 @@ def check_for_updates_gui(parent_widget=None, silent: bool = False):
             dlg.exec()
         else:
             if not silent and parent_widget:
-                QMessageBox.information(parent_widget, "التحديث التلقائي", f"v{current_version}\n{msg}")
+                QMessageBox.information(
+                    parent_widget,
+                    "التحقق من التحديثات",
+                    f"الإصدار الحالي: v{current_version}\n\n{msg}"
+                )
 
     worker.result_signal.connect(_on_check_done)
     # Prevent garbage collection of worker
