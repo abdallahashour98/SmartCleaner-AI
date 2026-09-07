@@ -1,0 +1,10 @@
+{
+  "latest_version": "1.0.0",
+  "release_date": "2026-09-07",
+  "release_notes": "إصدار SmartCleaner-AI الأول بنظام التحديث التلقائي وتفعيل Ngrok",
+  "patch_url": "SmartCleaner_Patch_v1.0.0.zip",
+  "sha256": "5359f3d12c222dc5703538e92a4f6a9a04e064ad7dd1fa5dd2e44c9ffad38c24",
+  "size_bytes": 478823,
+  "size_mb": 0.46,
+  "min_runtime_version": "3.10"
+}

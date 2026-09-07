@@ -1,0 +1,18 @@
+{
+  "include": [
+    "."
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "scratch"
+  ],
+  "extraPaths": [
+    ".",
+    "pcleaner"
+  ],
+  "pythonPath": "C:/Users/boody/AppData/Local/Programs/Python/Python310/python.exe",
+  "pythonPlatform": "Windows",
+  "pythonVersion": "3.10",
+  "reportMissingImports": "none"
+}

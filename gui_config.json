@@ -1,0 +1,52 @@
+{
+  "last_image_paths": [
+    "G:\\project\\FastTypeR-Extractor\\data\\sample_pages\\10.jpg"
+  ],
+  "last_output_dir": "g:\\project\\FastTypeR-Extractor\\data\\sample_pages",
+  "mask_padding": 3,
+  "snap_to_bubbles": false,
+  "iopaint_enabled": false,
+  "iopaint_adaptive": true,
+  "iopaint_server_url": "http://127.0.0.1:8080",
+  "iopaint_model": "anime-lama",
+  "iopaint_dilation": 5,
+  "use_remote_server": false,
+  "remote_server_url": "https://argue-endless-defiant.ngrok-free.dev",
+  "shortcuts": {
+    "toggle_cleaned": "Space",
+    "magic_wand": "W",
+    "brush_tool": "B",
+    "draw_box": "A",
+    "inpaint_page": "C",
+    "zoom_in": "+",
+    "zoom_out": "-",
+    "fit_view": "F",
+    "next_page": "Right",
+    "prev_page": "Left",
+    "export_image": "Ctrl+S",
+    "delete_bubble": "Delete"
+  },
+  "iopaint_launcher_path": "G:/iopaint/new iopaint/Start_IOPaint_Intel_Accelerated.bat",
+  "last_input_dir": "G:/photoshop/team x/draw/[Return of the Reaper Assassin]/22/[Return of the Reaper Assassin] Chapter 22-20260823T201427Z-1-001/[Return of the Reaper Assassin] Chapter 22",
+  "last_project_dir": "g:\\project\\FastTypeR-Extractor\\data\\sample_pages",
+  "last_export_dir": "G:/photoshop/team x/draw/Annihilation Of The Heavenly Way/13",
+  "last_launcher_dir": "G:/iopaint/new iopaint",
+  "window_width": 1147,
+  "window_height": 898,
+  "window_is_maximized": false,
+  "available_iopaint_models": [
+    "lama",
+    "anime-lama",
+    "cv2",
+    "manga"
+  ],
+  "device_mode": "auto",
+  "ngrok_authtoken": "",
+  "ngrok_domain": "",
+  "server_port": 8000,
+  "server_auto_ngrok": true,
+  "cached_gpu_info": {
+    "has_nvidia": false,
+    "gpu_name": ""
+  }
+}

@@ -1,0 +1,44 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Distribution & Build Outputs
+dist/
+build/
+backup/
+updates/*.zip
+*.egg-info/
+
+# Local batches & User Cache
+data/server_batches/
+data/*.zip
+data/*.rar
+data/*.cbz
+data/*.7z
+*.cln
+scratch/
+*.log
+
+# Tool Binaries
+tools/ngrok/ngrok.exe
+tools/ngrok/ngrok_temp.zip
+ngrok.exe
+
+# Heavy AI Model Weights (>50MB - GitHub 100MB limit)
+models/*.pt
+models/*.onnx
+!models/.gitkeep
+
+# IDE & Editor Settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS Generated
+Thumbs.db
+Desktop.ini
+.DS_Store
