@@ -1,8 +1,11 @@
 {
-  "last_image_paths": [
-    "G:\\project\\FastTypeR-Extractor\\data\\sample_pages\\10.jpg"
-  ],
-  "last_output_dir": "g:\\project\\FastTypeR-Extractor\\data\\sample_pages",
+  "last_image_paths": [],
+  "last_output_dir": "",
+  "last_input_dir": "",
+  "last_project_dir": "",
+  "last_export_dir": "",
+  "last_launcher_dir": "",
+  "iopaint_launcher_path": "",
   "mask_padding": 3,
   "snap_to_bubbles": false,
   "iopaint_enabled": false,
@@ -11,7 +14,7 @@
   "iopaint_model": "anime-lama",
   "iopaint_dilation": 5,
   "use_remote_server": false,
-  "remote_server_url": "https://argue-endless-defiant.ngrok-free.dev",
+  "remote_server_url": "",
   "shortcuts": {
     "toggle_cleaned": "Space",
     "magic_wand": "W",
@@ -26,17 +29,12 @@
     "export_image": "Ctrl+S",
     "delete_bubble": "Delete"
   },
-  "iopaint_launcher_path": "G:/iopaint/new iopaint/Start_IOPaint_Intel_Accelerated.bat",
-  "last_input_dir": "G:/photoshop/team x/draw/[Return of the Reaper Assassin]/22/[Return of the Reaper Assassin] Chapter 22-20260823T201427Z-1-001/[Return of the Reaper Assassin] Chapter 22",
-  "last_project_dir": "g:\\project\\FastTypeR-Extractor\\data\\sample_pages",
-  "last_export_dir": "G:/photoshop/team x/draw/Annihilation Of The Heavenly Way/13",
-  "last_launcher_dir": "G:/iopaint/new iopaint",
-  "window_width": 1147,
-  "window_height": 898,
+  "window_width": 1140,
+  "window_height": 890,
   "window_is_maximized": false,
   "available_iopaint_models": [
-    "lama",
     "anime-lama",
+    "lama",
     "cv2",
     "manga"
   ],

@@ -138,12 +138,17 @@ def get_text_detector(model_path: str = None, device: str = "auto", progress_cal
     return _detector_model_instance
 
 
-def read_image_unicode(path: Union[str, Path], flags: int = cv2.IMREAD_COLOR) -> Optional[np.ndarray]:
+def read_image_unicode(path: Union[str, Path, np.ndarray], flags: int = cv2.IMREAD_COLOR) -> Optional[np.ndarray]:
     """
     Safely reads an image from a path that may contain non-ASCII / Unicode characters
     (e.g. Korean, Arabic, Japanese, Chinese, special characters) on Windows and POSIX.
+    Supports receiving an already loaded numpy array.
     """
-    if not path:
+    if path is None:
+        return None
+    if isinstance(path, np.ndarray):
+        return path
+    if isinstance(path, (str, Path)) and not str(path).strip():
         return None
     p_str = str(path)
     if not os.path.exists(p_str):
@@ -204,7 +209,12 @@ def detect_bubble_at_point(
     max_search_radius: int = 400
 ):
     try:
-        img = preloaded_img if preloaded_img is not None else read_image_unicode(image_path)
+        if isinstance(image_path, np.ndarray):
+            img = image_path
+        elif preloaded_img is not None:
+            img = preloaded_img
+        else:
+            img = read_image_unicode(image_path)
         if img is None:
             return None
 
@@ -512,7 +522,13 @@ def detect_bubbles_for_cleaning(
 
     model = get_text_detector(model_path=model_path, device=device, progress_callback=progress_callback)
 
-    img = preloaded_img if preloaded_img is not None else read_image_unicode(image_path)
+    if isinstance(image_path, np.ndarray):
+        img = image_path
+    elif preloaded_img is not None:
+        img = preloaded_img
+    else:
+        img = read_image_unicode(image_path)
+
     if img is None:
         raise ValueError(f"Could not read image at path: {image_path}")
 

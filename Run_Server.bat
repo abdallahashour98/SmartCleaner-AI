@@ -11,8 +11,21 @@ echo.
 taskkill /F /IM ngrok.exe >nul 2>&1
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8000') do taskkill /F /PID %%a >nul 2>&1
 
+:: Determine Python command
+set "PY_CMD="
+if exist "%~dp0runtime\python.exe" (
+    set "PY_CMD=%~dp0runtime\python.exe"
+) else (
+    py -3.10 --version >nul 2>&1
+    if %errorlevel% equ 0 (
+        set "PY_CMD=py -3.10"
+    ) else (
+        set "PY_CMD=python"
+    )
+)
+
 :: Start Python Server with dynamic Ngrok integration
 echo [*] Starting SmartCleaner-AI Server & Ngrok Tunnel...
 echo.
-py -3.10 server_api.py --with-ngrok
+%PY_CMD% server_api.py --with-ngrok
 pause

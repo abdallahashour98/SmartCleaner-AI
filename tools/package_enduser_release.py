@@ -53,7 +53,9 @@ def package_release(include_models: bool = True, create_zip: bool = True):
         "fast_cleaner.py",
         "server_api.py",
         "version.json",
-        "gui_config.json",
+        "requirements.txt",
+        "SmartCleaner.bat",
+        "SmartCleaner_Debug.bat",
         "Run_SmartCleaner.bat",
         "Run_SmartCleaner.vbs",
         "Run_Server.bat",
@@ -68,6 +70,61 @@ def package_release(include_models: bool = True, create_zip: bool = True):
         if src.is_file():
             shutil.copy2(src, release_dir / tf)
             print(f"  [+] {tf}")
+
+    # Write a clean, sanitized default gui_config.json
+    clean_config = {
+        "last_image_paths": [],
+        "last_output_dir": "",
+        "last_input_dir": "",
+        "last_project_dir": "",
+        "last_export_dir": "",
+        "last_launcher_dir": "",
+        "iopaint_launcher_path": "",
+        "mask_padding": 3,
+        "snap_to_bubbles": False,
+        "iopaint_enabled": False,
+        "iopaint_adaptive": True,
+        "iopaint_server_url": "http://127.0.0.1:8080",
+        "iopaint_model": "anime-lama",
+        "iopaint_dilation": 5,
+        "use_remote_server": False,
+        "remote_server_url": "",
+        "shortcuts": {
+            "toggle_cleaned": "Space",
+            "magic_wand": "W",
+            "brush_tool": "B",
+            "draw_box": "A",
+            "inpaint_page": "C",
+            "zoom_in": "+",
+            "zoom_out": "-",
+            "fit_view": "F",
+            "next_page": "Right",
+            "prev_page": "Left",
+            "export_image": "Ctrl+S",
+            "delete_bubble": "Delete"
+        },
+        "window_width": 1140,
+        "window_height": 890,
+        "window_is_maximized": False,
+        "available_iopaint_models": [
+            "anime-lama",
+            "lama",
+            "cv2",
+            "manga"
+        ],
+        "device_mode": "auto",
+        "ngrok_authtoken": "",
+        "ngrok_domain": "",
+        "server_port": 8000,
+        "server_auto_ngrok": True,
+        "cached_gpu_info": {
+            "has_nvidia": False,
+            "gpu_name": ""
+        }
+    }
+    with open(release_dir / "gui_config.json", "w", encoding="utf-8") as f:
+        json.dump(clean_config, f, indent=2, ensure_ascii=False)
+    print("  [+] gui_config.json (Clean Default Configuration)")
 
     # 2. Modules and directories
     dirs_to_copy = ["pcleaner", "tools"]
@@ -93,39 +150,7 @@ def package_release(include_models: bool = True, create_zip: bool = True):
             print(f"[*] Copying module directory: {d}...")
             copy_filtered_tree(src_d, release_dir / d)
 
-    # 3. Create a clean user launcher: SmartCleaner.bat
-    launcher_bat_content = """@echo off
-title SmartCleaner-AI
-cd /d "%~dp0"
-
-:: Check if embedded/local runtime exists
-if exist "%~dp0runtime\\python.exe" (
-    start "" "%~dp0runtime\\pythonw.exe" "%~dp0gui_cleaner.py"
-    exit
-)
-
-:: Check for py -3.10
-py -3.10 --version >nul 2>&1
-if %errorlevel% equ 0 (
-    start "" pyw -3.10 "%~dp0gui_cleaner.py"
-    exit
-)
-
-:: Check for system python
-python --version >nul 2>&1
-if %errorlevel% equ 0 (
-    start "" pythonw "%~dp0gui_cleaner.py"
-    exit
-)
-
-echo [!] Error: Python 3.10 environment not found.
-echo Please ensure Python 3.10 is installed or placed in the runtime/ folder.
-pause
-"""
-    with open(release_dir / "SmartCleaner.bat", "w", encoding="utf-8") as f:
-        f.write(launcher_bat_content)
-
-    # 4. Create Readme_User.txt
+    # 3. Create Readme_User.txt
     readme_content = f"""====================================================================
            استوديو التبييض الذكي SmartCleaner-AI (الإصدار {version})
 ====================================================================
@@ -134,10 +159,18 @@ pause
 أداة الذكاء الاصطناعي المتخصصة في تبييض وإزالة النصوص وإعادة رسم خلفيات المانجا والقصص المصورة.
 
 --------------------------------------------------------------------
-🚀 طريقة التشغيل لأول مرة:
+🚀 طريقة التشغيل:
 --------------------------------------------------------------------
 1. انقر نقراً مزدوجاً على ملف:
-   SmartCleaner.bat  (أو Run_SmartCleaner.vbs للتشغيل الصامت بدون نافذة سوداء)
+   SmartCleaner.bat  (أو Run_SmartCleaner.vbs للتشغيل الصامت)
+
+2. في حال حدوث أي خطأ أو أردت التأكد من توافق بيئتك:
+   شغّل: SmartCleaner_Debug.bat
+   وسيقوم بفحص المكتبات وإظهار أي تنبيهات تشخيصية فوراً.
+
+3. لتثبيت المتطلبات يدوياً في حال كانت بيئتك جديدة:
+   pip install -r requirements.txt
+
 
 --------------------------------------------------------------------
 📱 طريقة الربط والتشغيل عن بُعد من الموبايل:
