@@ -1,10 +1,10 @@
 {
   "latest_version": "1.0.0",
-  "release_date": "2026-09-07",
-  "release_notes": "إصدار SmartCleaner-AI الأول بنظام التحديث التلقائي وتفعيل Ngrok",
-  "patch_url": "SmartCleaner_Patch_v1.0.0.zip",
-  "sha256": "5359f3d12c222dc5703538e92a4f6a9a04e064ad7dd1fa5dd2e44c9ffad38c24",
-  "size_bytes": 478823,
-  "size_mb": 0.46,
+  "release_date": "2026-09-08",
+  "release_notes": "تحديث شامل SmartCleaner-AI v1.0.0 مع مشغل التشغيل الذكي التلقائي وحل مشاكل الترميز.",
+  "patch_url": "https://raw.githubusercontent.com/abdallahashour98/SmartCleaner-AI/main/updates/SmartCleaner_Patch_v1.0.0.zip",
+  "sha256": "b77b555885a578d9ae41e83c0475033c65abdf04132bcd6377c9455a8e3a5601",
+  "size_bytes": 875504,
+  "size_mb": 0.83,
   "min_runtime_version": "3.10"
 }

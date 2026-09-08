@@ -18,7 +18,7 @@ if !errorlevel! equ 0 (
     echo   Please EXTRACT the ZIP folder first:
     echo   1. Close this window.
     echo   2. Right-click the downloaded ZIP file.
-    echo   3. Click "Extract All..." (استخراج الكل).
+    echo   3. Click "Extract All...".
     echo   4. Open the extracted folder and run SmartCleaner.bat.
     echo.
     echo ================================================================

@@ -42,14 +42,18 @@ def create_patch(version: str, notes: str, download_url_base: str = ""):
 
     # Files and folders to package in the modular update
     include_files = [
-        "gui_cleaner.py",
-        "fast_cleaner.py",
-        "server_api.py",
+        "SmartCleaner.bat",
+        "SmartCleaner_Debug.bat",
+        "Install_Dependencies.bat",
         "Run_SmartCleaner.bat",
         "Run_SmartCleaner.vbs",
         "Run_Server.bat",
         "Silent_Start_Server.vbs",
         "Stop_Server.bat",
+        "gui_cleaner.py",
+        "fast_cleaner.py",
+        "server_api.py",
+        "requirements.txt",
         "pyrightconfig.json"
     ]
 
