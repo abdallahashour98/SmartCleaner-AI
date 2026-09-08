@@ -1,6 +1,6 @@
 """
 SmartCleaner-AI - Universal Bootstrapper & Environment Verifier
-Guarantees reliable execution on all Windows systems:
+100% Pure English - Zero encoding issues on any Windows locale.
 1. Verifies Python version.
 2. Checks all required packages (PySide6, cv2, torch, ultralytics, etc.).
 3. Automatically installs missing dependencies from requirements.txt if needed.
@@ -24,7 +24,7 @@ if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
 
 
 def show_native_alert(title: str, message: str, is_error: bool = False):
-    """Displays a native Windows graphical alert dialog using standard ctypes."""
+    """Displays a native Windows alert dialog using standard ctypes."""
     try:
         import ctypes
         icon_flag = 0x10 if is_error else 0x40  # MB_ICONERROR or MB_ICONINFORMATION
@@ -61,21 +61,20 @@ def check_and_install_dependencies():
         return True
 
     print("=" * 65)
-    print("  ⚡ SmartCleaner-AI: First-time Dependency Setup")
-    print("  جاري تهيئة وتثبيت مكتبات الذكاء الاصطناعي لأول مرة...")
+    print("  SmartCleaner-AI: First-time Dependency Setup")
+    print("  Preparing and installing required AI libraries...")
     print("=" * 65)
-    print(f"[*] Missing modules detected: {', '.join(missing)}")
-    print("[*] Installing requirements from requirements.txt via pip...")
-    print("    (This runs only once and takes 1-2 minutes. Please wait...)\n")
+    print(f"[*] Missing modules: {', '.join(missing)}")
+    print("[*] Installing packages from requirements.txt via pip...")
+    print("    (This runs once and takes 1-2 minutes. Please wait...)\n")
 
     req_file = BASE_DIR / "requirements.txt"
     if not req_file.exists():
         print(f"[!] Error: requirements.txt not found at {req_file}")
         return False
 
-    cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "pip"]
     try:
-        subprocess.run(cmd, check=False)
+        subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "pip"], check=False)
     except Exception:
         pass
 
@@ -84,13 +83,13 @@ def check_and_install_dependencies():
 
     if res.returncode == 0:
         print("\n" + "=" * 65)
-        print("  ✅ All dependencies installed successfully! Launching app...")
+        print("  [SUCCESS] All dependencies installed! Launching app...")
         print("=" * 65 + "\n")
         return True
     else:
         error_msg = (
-            "فشل تثبيت بعض المكتبات المطلوبة تلقائياً.\n"
-            "يرجى التأكد من اتصالك بالإنترنت ثم إعادة تشغيل البرنامج.\n\n"
+            "Failed to install required Python packages automatically.\n"
+            "Please check your internet connection and try again.\n\n"
             f"Command exit code: {res.returncode}"
         )
         print("\n[!] " + error_msg)
@@ -100,14 +99,14 @@ def check_and_install_dependencies():
 
 def main():
     print("========================================================")
-    print("  🚀 Starting SmartCleaner-AI Studio...")
+    print("  Starting SmartCleaner-AI Studio...")
     print(f"  Python executable: {sys.executable}")
     print(f"  Python version: {sys.version.split()[0]}")
     print("========================================================\n")
 
     # 1. Check Python version
     if sys.version_info < (3, 9):
-        err = f"Python version is too old: {sys.version}. Please install Python 3.10+."
+        err = f"Python version is too old: {sys.version}. Please install Python 3.10 or newer."
         print(f"[!] {err}")
         show_native_alert("Python Version Error", err, is_error=True)
         return 1
@@ -131,7 +130,11 @@ def main():
         print(tb)
         print("=" * 65)
 
-        err_msg = f"حدث خطأ أثناء تشغيل البرنامج:\n\n{str(e)}\n\nيرجى مراجعة تفاصيل الخطأ في نافذة التيرمنال."
+        err_msg = (
+            f"An error occurred while launching SmartCleaner-AI:\n\n"
+            f"{str(e)}\n\n"
+            "Please check the terminal console window for full traceback details."
+        )
         show_native_alert("SmartCleaner-AI Launch Error", err_msg, is_error=True)
         input("\nPress Enter to exit...")
         return 1
