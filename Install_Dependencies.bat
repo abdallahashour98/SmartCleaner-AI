@@ -1,44 +1,52 @@
 @echo off
-chcp 65001 >nul
+setlocal enabledelayedexpansion
 title SmartCleaner-AI - Install Dependencies
 color 0b
 cd /d "%~dp0"
 
 echo ================================================================
-echo   🚀 SmartCleaner-AI - تثبيت مكتبات الذكاء الاصطناعي
+echo   SmartCleaner-AI - Install AI Dependencies
 echo ================================================================
 echo.
 
-set "PY_CMD="
+set "PYTHON="
 
-if exist "%~dp0runtime\python.exe" set "PY_CMD="%~dp0runtime\python.exe""
-if not defined PY_CMD py -3.10 -c "import sys" >nul 2>&1 && set "PY_CMD=py -3.10"
-if not defined PY_CMD py -3 -c "import sys" >nul 2>&1 && set "PY_CMD=py -3"
-if not defined PY_CMD python -c "import sys; assert 'WindowsApps' not in sys.executable" >nul 2>&1 && set "PY_CMD=python"
+if exist "%~dp0runtime\python.exe" set "PYTHON=%~dp0runtime\python.exe"
+if not defined PYTHON py -3.10 --version >nul 2>&1 && set "PYTHON=py -3.10"
+if not defined PYTHON py -3 --version >nul 2>&1 && set "PYTHON=py -3"
+if not defined PYTHON python -c "import sys; assert 'WindowsApps' not in sys.executable" >nul 2>&1 && set "PYTHON=python"
 
-if not defined PY_CMD (
+if not defined PYTHON (
     color 0c
-    echo [!] لم يتم العثور على بايثون. يرجى تثبيت Python 3.10 أولاً.
+    echo [ERROR] Python 3.10 was not found on this system.
+    echo Please install Python 3.10 from https://www.python.org/
+    echo (Make sure to check 'Add Python to PATH' during installation!)
+    echo.
     pause
     exit /b 1
 )
 
-echo [*] جاري تحديث pip وتثبيت متطلبات requirements.txt...
-echo.
-%PY_CMD% -m pip install --upgrade pip
-%PY_CMD% -m pip install -r requirements.txt
+echo [*] Using Python: !PYTHON!
+echo [*] Upgrading pip...
+!PYTHON! -m pip install --upgrade pip
 
 echo.
-%PY_CMD% -c "import PySide6, cv2, torch" >nul 2>&1
-if %errorlevel% equ 0 (
+echo [*] Installing requirements from requirements.txt...
+!PYTHON! -m pip install -r requirements.txt
+
+echo.
+!PYTHON! -c "import PySide6, cv2, torch" >nul 2>&1
+if !errorlevel! equ 0 (
     color 0a
     echo ================================================================
-    echo   ✅ تم تثبيت كافة المكتبات بنجاح! يمكنك الآن تشغيل SmartCleaner.bat
+    echo   [SUCCESS] All dependencies installed successfully!
+    echo   You can now run SmartCleaner.bat to start the app.
     echo ================================================================
 ) else (
     color 0c
     echo ================================================================
-    echo   ❌ حدث خطأ أثناء التثبيت. يرجى مراجعة الرسائل أعلاه.
+    echo   [FAILED] Some dependencies could not be installed.
+    echo   Please check your internet connection and try again.
     echo ================================================================
 )
 echo.

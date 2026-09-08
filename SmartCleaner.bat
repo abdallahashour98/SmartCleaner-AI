@@ -1,112 +1,81 @@
 @echo off
-chcp 65001 >nul
+setlocal enabledelayedexpansion
 title SmartCleaner-AI Studio
 cd /d "%~dp0"
 
-set "PY_CMD="
+:: 1. Detect Python
+set "PYTHON="
 
-:: 1. Check local portable runtime
 if exist "%~dp0runtime\python.exe" (
-    set "PY_CMD="%~dp0runtime\python.exe""
-    goto :found_python
+    set "PYTHON=%~dp0runtime\python.exe"
+    goto :check_python
 )
 
-:: 2. Check py -3.10 launcher
-py -3.10 -c "import sys" >nul 2>&1
-if %errorlevel% equ 0 (
-    set "PY_CMD=py -3.10"
-    goto :found_python
+py -3.10 --version >nul 2>&1
+if !errorlevel! equ 0 (
+    set "PYTHON=py -3.10"
+    goto :check_python
 )
 
-:: 3. Check py -3 launcher
-py -3 -c "import sys" >nul 2>&1
-if %errorlevel% equ 0 (
-    set "PY_CMD=py -3"
-    goto :found_python
+py -3 --version >nul 2>&1
+if !errorlevel! equ 0 (
+    set "PYTHON=py -3"
+    goto :check_python
 )
 
-:: 4. Check system python (ensuring it's not the WindowsApps dummy stub)
 python -c "import sys; assert 'WindowsApps' not in sys.executable" >nul 2>&1
-if %errorlevel% equ 0 (
-    set "PY_CMD=python"
-    goto :found_python
+if !errorlevel! equ 0 (
+    set "PYTHON=python"
+    goto :check_python
 )
 
-:: If no Python was found at all:
-:python_missing
+:: No Python found
 cls
 color 0c
 echo ================================================================
-echo   [!] SmartCleaner-AI - لم يتم العثور على بايثون (Python 3.10)
+echo   [!] SmartCleaner-AI Launcher Error
+echo   Python 3.10+ was not found on this computer.
 echo ================================================================
 echo.
-echo   لتشغيل استوديو SmartCleaner-AI، يجب توفر Python 3.10+ على جهازك.
+echo   To run this application, Python 3.10 or newer is required.
 echo.
-echo   [1] اضغط 1 لتثبيت Python 3.10 تلقائياً عبر ويندوز (winget).
-echo   [2] اضغط 2 لفتح صفحة تحميل Python 3.10 الرسمية في المتصفح.
-echo   [3] اضغط 3 للخروج.
+echo   Option 1: Install Python 3.10 automatically via Windows winget.
+echo   Option 2: Open the official Python 3.10 download webpage.
 echo.
 echo ================================================================
-set /p user_choice="اختر رقم (1 أو 2 أو 3): "
+set /p choice="Enter option (1 or 2): "
 
-if "%user_choice%"=="1" (
+if "!choice!"=="1" (
     echo.
-    echo [*] جاري محاولة تثبيت Python 3.10 عبر winget...
+    echo [*] Installing Python 3.10 via winget...
     winget install Python.Python.3.10 --accept-package-agreements --accept-source-agreements
     echo.
-    echo [+] تم التثبيت. يرجى إغلاق هذه النافذة وإعادة تشغيل البرنامج!
+    echo [+] Installation finished. Please close this window and run SmartCleaner.bat again!
     pause
-    exit
+    exit /b 0
 )
-if "%user_choice%"=="2" (
+
+if "!choice!"=="2" (
     start https://www.python.org/downloads/release/python-31011/
-    echo [*] تم فتح صفحة التحميل. تأكد من تفعيل خيار (Add Python to PATH) أثناء التثبيت!
+    echo [*] Download page opened. Please check 'Add Python to PATH' during installation!
     pause
-    exit
-)
-exit
-
-:found_python
-:: Check if PySide6 and core libs are installed
-%PY_CMD% -c "import PySide6, cv2, torch" >nul 2>&1
-if %errorlevel% equ 0 (
-    :: Everything is installed! Launch GUI
-    start "" %PY_CMD% gui_cleaner.py
-    exit
+    exit /b 0
 )
 
-:: If PySide6 or dependencies are missing:
-cls
-color 0e
-echo ================================================================
-echo   ⚡ SmartCleaner-AI - تهيئة مكتبات الذكاء الاصطناعي لأول مرة
-echo ================================================================
-echo.
-echo   تم العثور على Python، ولكن مكتبات التطبيق الأساسية غير مثبتة بعد.
-echo   جاري تثبيت المكتبات المطلوبة تلقائياً من requirements.txt...
-echo   (هذه العملية تتم مرة واحدة فقط وتستغرق دقيقة إلى دقيقتين)
-echo.
-echo ================================================================
+pause
+exit /b 1
+
+:check_python
+echo [*] Python environment detected: !PYTHON!
+echo [*] Starting SmartCleaner-AI launcher...
 echo.
 
-%PY_CMD% -m pip install --upgrade pip
-%PY_CMD% -m pip install -r requirements.txt
+!PYTHON! tools\launcher.py
 
-echo.
-%PY_CMD% -c "import PySide6" >nul 2>&1
-if %errorlevel% equ 0 (
+if !errorlevel! neq 0 (
+    echo.
     echo ================================================================
-    echo   ✅ تم تثبيت كافة المكتبات بنجاح! جاري إطلاق البرنامج...
-    echo ================================================================
-    timeout /t 2 >nul
-    start "" %PY_CMD% gui_cleaner.py
-    exit
-) else (
-    color 0c
-    echo ================================================================
-    echo   ❌ حدث خطأ أثناء تثبيت المكتبات.
-    echo   يرجى التحقق من اتصالك بالإنترنت وتشغيل SmartCleaner_Debug.bat
+    echo   [!] Application stopped with exit code !errorlevel!.
     echo ================================================================
     pause
-    exit
 )
