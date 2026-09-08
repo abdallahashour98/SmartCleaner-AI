@@ -3696,6 +3696,13 @@ class BatchCleanerWorker(QThread):
 
     def run(self):
         try:
+            try:
+                import pyclipper
+            except ImportError:
+                self.progress_signal.emit("📦 Installing missing AI dependency 'pyclipper'...")
+                import subprocess
+                subprocess.run([sys.executable, "-m", "pip", "install", "pyclipper"], capture_output=True)
+
             from fast_cleaner import detect_bubbles_for_cleaning
             total_pages = len(self.image_paths)
             page_results = {}
