@@ -116,7 +116,7 @@ exit /b 1
 echo [*] Python environment detected: !PYTHON!
 echo [*] Starting SmartCleaner-AI launcher...
 echo.
-
+set "PYTHONPATH=%~dp0;!PYTHONPATH!"
 !PYTHON! tools\launcher.py
 
 if !errorlevel! neq 0 (

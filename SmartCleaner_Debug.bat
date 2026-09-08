@@ -6,6 +6,7 @@ echo ========================================================
 echo   SmartCleaner-AI - Debug Mode Console
 echo ========================================================
 echo.
+set "PYTHONPATH=%~dp0;%PYTHONPATH%"
 
 :: 1. Check if embedded/local runtime exists
 if exist "%~dp0runtime\python.exe" (

@@ -13,7 +13,10 @@ import subprocess
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-os.chdir(str(BASE_DIR))
+base_dir_str = str(BASE_DIR)
+if base_dir_str not in sys.path:
+    sys.path.insert(0, base_dir_str)
+os.chdir(base_dir_str)
 
 if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
     try:
@@ -117,10 +120,34 @@ def main():
         return 1
 
     # 3. Launch main GUI
+    if base_dir_str not in sys.path:
+        sys.path.insert(0, base_dir_str)
+
+    gui_file = BASE_DIR / "gui_cleaner.py"
+    if not gui_file.exists():
+        err_msg = f"gui_cleaner.py was not found at:\n{gui_file}\n\nPlease ensure you have fully extracted the application ZIP."
+        print(f"[!] {err_msg}")
+        show_native_alert("Missing File Error", err_msg, is_error=True)
+        input("\nPress Enter to exit...")
+        return 1
+
     try:
-        import gui_cleaner
-        gui_cleaner.main()
-        return 0
+        try:
+            import gui_cleaner
+            gui_cleaner.main()
+            return 0
+        except ModuleNotFoundError as mne:
+            if "gui_cleaner" in str(mne):
+                import importlib.util
+                spec = importlib.util.spec_from_file_location("gui_cleaner", str(gui_file))
+                if spec and spec.loader:
+                    mod = importlib.util.module_from_spec(spec)
+                    sys.modules["gui_cleaner"] = mod
+                    spec.loader.exec_module(mod)
+                    if hasattr(mod, "main"):
+                        mod.main()
+                        return 0
+            raise mne
     except Exception as e:
         import traceback
         tb = traceback.format_exc()

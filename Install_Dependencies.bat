@@ -27,6 +27,7 @@ if not defined PYTHON (
 )
 
 echo [*] Using Python: !PYTHON!
+set "PYTHONPATH=%~dp0;!PYTHONPATH!"
 echo [*] Upgrading pip...
 !PYTHON! -m pip install --upgrade pip
 
