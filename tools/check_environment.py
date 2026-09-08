@@ -52,8 +52,12 @@ def run_checks():
         try:
             __import__(pkg)
             print(f"  [+] {pkg.ljust(15)} : Installed ({desc})")
-        except ImportError:
-            print(f"  [-] {pkg.ljust(15)} : NOT installed! ({desc})")
+        except Exception as e:
+            err_str = str(e)
+            if "126" in err_str or "shm.dll" in err_str:
+                print(f"  [-] {pkg.ljust(15)} : Missing Visual C++ Runtime! (Run Install_Visual_Cpp.bat)")
+            else:
+                print(f"  [-] {pkg.ljust(15)} : NOT installed! ({desc})")
             all_passed = False
 
     # 3. Check Hardware Acceleration (GPU / CPU)

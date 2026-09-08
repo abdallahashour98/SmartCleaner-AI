@@ -52,12 +52,69 @@ REQUIRED_MODULES = [
 ]
 
 
+def install_vcredist():
+    """Automatically downloads and installs Microsoft Visual C++ 2015-2022 Redistributable."""
+    print("\n" + "=" * 65)
+    print("  [!] Microsoft Visual C++ Redistributable Required")
+    print("  PyTorch AI engine requires Visual C++ 2015-2022 (vcruntime140_1.dll).")
+    print("=" * 65)
+
+    # 1. Try winget first
+    try:
+        res = subprocess.run(
+            ["winget", "install", "Microsoft.VCRedist.2015+.x64", "--accept-package-agreements", "--accept-source-agreements"],
+            capture_output=True, text=True
+        )
+        if res.returncode == 0:
+            print("[+] Installed Microsoft Visual C++ Redistributable via winget!")
+            return True
+    except Exception:
+        pass
+
+    # 2. Direct download from Microsoft
+    installer_path = BASE_DIR / "vc_redist.x64.exe"
+    print("[*] Downloading official vc_redist.x64.exe from Microsoft...")
+    try:
+        import urllib.request
+        urllib.request.urlretrieve("https://aka.ms/vs/17/release/vc_redist.x64.exe", str(installer_path))
+        if installer_path.exists():
+            print("[*] Installing Microsoft Visual C++ Redistributable (takes ~5 seconds)...")
+            subprocess.run([str(installer_path), "/passive", "/norestart"], check=True)
+            installer_path.unlink(missing_ok=True)
+            print("[+] Microsoft Visual C++ Redistributable installed successfully!")
+            return True
+    except Exception as dl_err:
+        print(f"[!] Could not auto-install: {dl_err}")
+        show_native_alert(
+            "Visual C++ Required",
+            "PyTorch requires Microsoft Visual C++ 2015-2022 Redistributable.\n\n"
+            "Please install it from:\nhttps://aka.ms/vs/17/release/vc_redist.x64.exe",
+            is_error=True
+        )
+        try:
+            import webbrowser
+            webbrowser.open("https://aka.ms/vs/17/release/vc_redist.x64.exe")
+        except Exception:
+            pass
+    return False
+
+
 def check_and_install_dependencies():
     missing = []
     for mod_name, pkg_name in REQUIRED_MODULES:
         try:
             __import__(mod_name)
-        except ImportError:
+        except Exception as e:
+            err_str = str(e)
+            if mod_name == "torch" and ("126" in err_str or "shm.dll" in err_str or "vcruntime" in err_str):
+                print(f"\n[*] PyTorch C++ runtime missing (WinError 126).")
+                if install_vcredist():
+                    try:
+                        __import__("torch")
+                        print("[+] PyTorch loaded successfully after VC++ installation!")
+                        continue
+                    except Exception as e_retry:
+                        print(f"[!] PyTorch import error after VC++ installation: {e_retry}")
             missing.append(pkg_name)
 
     if not missing:

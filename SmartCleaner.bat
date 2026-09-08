@@ -114,6 +114,23 @@ exit /b 1
 
 :check_python
 echo [*] Python environment detected: !PYTHON!
+
+:: Check for Microsoft Visual C++ 2015-2022 Redistributable (Required for PyTorch on Windows)
+if not exist "%SystemRoot%\System32\vcruntime140_1.dll" (
+    echo [*] Checking Microsoft Visual C++ Redistributable...
+    echo [*] Installing Visual C++ Runtime required for PyTorch...
+    winget install Microsoft.VCRedist.2015+.x64 --accept-package-agreements --accept-source-agreements >nul 2>&1
+    if not exist "%SystemRoot%\System32\vcruntime140_1.dll" (
+        echo [*] Downloading official VC++ runtime installer from Microsoft...
+        powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object System.Net.WebClient).DownloadFile('https://aka.ms/vs/17/release/vc_redist.x64.exe', 'vc_redist.exe')"
+        if exist vc_redist.exe (
+            echo [*] Installing Visual C++ Redistributable...
+            start /wait vc_redist.exe /passive /norestart
+            del /f /q vc_redist.exe >nul 2>&1
+        )
+    )
+)
+
 echo [*] Starting SmartCleaner-AI launcher...
 echo.
 set "PYTHONPATH=%~dp0;!PYTHONPATH!"
@@ -122,7 +139,7 @@ set "PYTHONPATH=%~dp0;!PYTHONPATH!"
 if !errorlevel! neq 0 (
     echo.
     echo ================================================================
-    echo   [!] Application stopped with exit code !errorlevel!.
+    echo   [*] Application stopped with exit code: !errorlevel!
     echo ================================================================
     pause
 )
