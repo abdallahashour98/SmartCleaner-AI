@@ -44,7 +44,7 @@ REQUIRED_MODULES = [
     ("ultralytics", "ultralytics"),
     ("pyclipper", "pyclipper"),
     ("shapely", "shapely"),
-    ("onnxruntime", "onnxruntime"),
+    ("onnxruntime", "onnxruntime-directml" if sys.platform == "win32" else "onnxruntime"),
     ("PIL", "pillow"),
     ("numpy", "numpy"),
     ("requests", "requests"),
@@ -151,8 +151,11 @@ def check_and_install_dependencies():
         return True
     else:
         error_msg = (
-            "Failed to install required Python packages automatically.\n"
-            "Please check your internet connection and try again.\n\n"
+            "Failed to install required Python packages automatically.\n\n"
+            "• If the error mentions 'Access is denied' (WinError 5), another running\n"
+            "  Python or SmartCleaner instance has locked the DLL files.\n"
+            "  Please close any other Python console windows or restart your PC, then retry.\n"
+            "• Otherwise, please check your internet connection.\n\n"
             f"Command exit code: {res.returncode}"
         )
         print("\n[!] " + error_msg)
