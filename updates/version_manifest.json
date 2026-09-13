@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.0.0",
-  "release_date": "2026-09-09",
-  "release_notes": "تحديث شامل SmartCleaner-AI v1.0.0 مع مشغل التشغيل الذكي التلقائي وحل مشاكل الترميز.",
-  "patch_url": "https://raw.githubusercontent.com/abdallahashour98/SmartCleaner-AI/main/updates/SmartCleaner_Patch_v1.0.0.zip",
-  "sha256": "1978ad7d4b2f17ccf246d2a8a15301679801546e227e2f353191aa698a26f3bb",
-  "size_bytes": 877824,
-  "size_mb": 0.84,
+  "latest_version": "1.1.0",
+  "release_date": "2026-09-13",
+  "release_notes": "تحديث رئيسي v1.1.0: إضافة محرك YOLO المزدوج لاكتشاف الفقاعات، حماية أطراف الفقاعات الشوكية، تنظيف محلي فائق السرعة للفقاعات السوداء، وإصلاح ثبات الزوم ببكرة الماوس في شاشة المراجعة.",
+  "patch_url": "https://raw.githubusercontent.com/abdallahashour98/SmartCleaner-AI/main/updates/SmartCleaner_Patch_v1.1.0.zip",
+  "sha256": "81b4f97f388e0ce87d24d5615848ba5804c801709cf414688e03052527617675",
+  "size_bytes": 496454,
+  "size_mb": 0.47,
   "min_runtime_version": "3.10"
 }

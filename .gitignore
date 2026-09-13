@@ -10,6 +10,7 @@ dist/
 build/
 backup/
 updates/*.zip
+!updates/SmartCleaner_Patch_*.zip
 *.egg-info/
 
 # Local batches & User Cache

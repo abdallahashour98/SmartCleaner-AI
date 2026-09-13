@@ -1,18 +1,20 @@
 {
-  "last_image_paths": [],
+  "last_image_paths": [
+    "G:/photoshop/team x/draw/Annihilation Of The Heavenly Way/13/01.jpg"
+  ],
   "last_output_dir": "",
-  "last_input_dir": "",
+  "last_input_dir": "G:/photoshop/team x/draw/Annihilation Of The Heavenly Way/13",
   "last_project_dir": "",
   "last_export_dir": "",
-  "last_launcher_dir": "",
-  "iopaint_launcher_path": "",
-  "mask_padding": 3,
-  "snap_to_bubbles": false,
+  "last_launcher_dir": "G:/iopaint/new iopaint",
+  "iopaint_launcher_path": "G:/iopaint/new iopaint/Start_IOPaint_Intel_Accelerated.bat",
+  "mask_padding": 0,
+  "snap_to_bubbles": true,
   "iopaint_enabled": false,
   "iopaint_adaptive": true,
   "iopaint_server_url": "http://127.0.0.1:8080",
   "iopaint_model": "anime-lama",
-  "iopaint_dilation": 5,
+  "iopaint_dilation": 0,
   "use_remote_server": false,
   "remote_server_url": "",
   "shortcuts": {
@@ -29,9 +31,9 @@
     "export_image": "Ctrl+S",
     "delete_bubble": "Delete"
   },
-  "window_width": 1140,
-  "window_height": 890,
-  "window_is_maximized": false,
+  "window_width": 1920,
+  "window_height": 1009,
+  "window_is_maximized": true,
   "available_iopaint_models": [
     "anime-lama",
     "lama",

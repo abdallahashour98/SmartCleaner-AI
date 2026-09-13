@@ -1,7 +1,7 @@
 {
   "app_name": "SmartCleaner-AI",
-  "version": "1.0.0",
-  "build_date": "2026-09-07",
+  "version": "1.1.0",
+  "build_date": "2026-09-13",
   "channel": "stable",
   "update_manifest_url": "https://raw.githubusercontent.com/abdallahashour98/SmartCleaner-AI/main/updates/version_manifest.json",
   "auto_check_on_startup": true

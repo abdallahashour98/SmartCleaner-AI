@@ -370,10 +370,10 @@ def deduplicate_and_merge_bubbles(bubbles: list, iou_thresh: float = 0.85, conta
                             if not is_dup:
                                 m['lines'].append(bl)
 
-                    if m.get('lines'):
-                        m_polys = generate_bubble_lasso_polygons(m['lines'])
-                        m['polygons'] = m_polys
-                        m['polygon'] = m_polys[0] if len(m_polys) == 1 else (m_polys[0] if m_polys else None)
+                    if 'bubble_polygon' in b and b['bubble_polygon'] and ('bubble_polygon' not in m or not m['bubble_polygon']):
+                        m['bubble_polygon'] = b['bubble_polygon']
+                    if 'bubble_bbox' in b and b['bubble_bbox'] and ('bubble_bbox' not in m or not m['bubble_bbox']):
+                        m['bubble_bbox'] = b['bubble_bbox']
 
                     matched = True
                     break
@@ -647,7 +647,8 @@ def detect_bubbles_for_cleaning(
                 except Exception:
                     pass
 
-        raw_x1, raw_y1, raw_x2, raw_y2 = int(blk.xyxy[0]), int(blk.xyxy[1]), int(blk.xyxy[2]), int(blk.xyxy[3])
+        # 1. Text boundaries: strictly from b_lines and ComicTextDetector raw_text_xyxy
+        raw_tx1, raw_ty1, raw_tx2, raw_ty2 = getattr(blk, 'raw_text_xyxy', [int(blk.xyxy[0]), int(blk.xyxy[1]), int(blk.xyxy[2]), int(blk.xyxy[3])])
         if b_lines:
             all_pts = [pt for l in b_lines for pt in l]
             pts_arr = np.array(all_pts, dtype=np.int32)
@@ -655,16 +656,14 @@ def detect_bubbles_for_cleaning(
             ly1 = int(np.min(pts_arr[:, 1]))
             lx2 = int(np.max(pts_arr[:, 0]))
             ly2 = int(np.max(pts_arr[:, 1]))
-            # Merge line bounding box with block detector bounding box (which includes trailing punctuation marks,
-            # dots, exclamation marks, question marks, and dashes not converted to standalone line polygons)
-            tx1 = min(raw_x1, max(0, lx1 - 3))
-            ty1 = min(raw_y1, max(0, ly1 - 3))
-            tx2 = max(raw_x2, min(img.shape[1], lx2 + 3))
-            ty2 = max(raw_y2, min(img.shape[0], ly2 + 3))
+            # Merge line bounding box with block detector text bounding box (captures trailing punctuation like ? ! ... -)
+            tx1 = min(raw_tx1, max(0, lx1 - 2))
+            ty1 = min(raw_ty1, max(0, ly1 - 2))
+            tx2 = max(raw_tx2, min(img.shape[1], lx2 + 2))
+            ty2 = max(raw_ty2, min(img.shape[0], ly2 + 2))
 
-            # If block bounds extend beyond line contours (e.g. trailing punctuation like "?!", "...", "-"),
-            # ensure all_pts includes the extended corners so convex hull polygon covers the punctuation
-            if raw_x2 > lx2 + 4 or raw_x1 < lx1 - 4 or raw_y2 > ly2 + 4 or raw_y1 < ly1 - 4:
+            # Include punctuation corners in convex hull if text box extends beyond lines
+            if raw_tx2 > lx2 + 3 or raw_tx1 < lx1 - 3 or raw_ty2 > ly2 + 3 or raw_ty1 < ly1 - 3:
                 all_pts.extend([[tx1, ty1], [tx2, ty1], [tx2, ty2], [tx1, ty2]])
                 pts_arr = np.array(all_pts, dtype=np.int32)
 
@@ -677,27 +676,45 @@ def detect_bubbles_for_cleaning(
             else:
                 polygon = None
         else:
-            tx1, ty1, tx2, ty2 = raw_x1, raw_y1, raw_x2, raw_y2
+            tx1, ty1, tx2, ty2 = raw_tx1, raw_ty1, raw_tx2, raw_ty2
             polygon = None
 
-        pad_amount = mask_padding if mask_padding > 0 else (int(min(tx2 - tx1, ty2 - ty1) * 0.08) + 5)
-        x1 = max(0, tx1 - pad_amount)
-        y1 = max(0, ty1 - pad_amount)
-        x2 = min(img.shape[1], tx2 + pad_amount)
-        y2 = min(img.shape[0], ty2 + pad_amount)
-        w = max(1, x2 - x1)
-        h = max(1, y2 - y1)
+        # 2. Bubble container boundaries: from YOLO11 or text margin fallback
+        bubble_polygon = getattr(blk, 'bubble_polygon', None)
+        bubble_bbox = getattr(blk, 'bubble_bbox', None)
 
-        bg_type = "white"
+        if bubble_bbox:
+            bx1, by1, bx2, by2 = bubble_bbox
+            x1 = max(0, min(bx1, tx1))
+            y1 = max(0, min(by1, ty1))
+            x2 = min(img.shape[1], max(bx2, tx2))
+            y2 = min(img.shape[0], max(by2, ty2))
+            w = max(1, x2 - x1)
+            h = max(1, y2 - y1)
+        else:
+            pad_amount = mask_padding if mask_padding > 0 else (int(min(tx2 - tx1, ty2 - ty1) * 0.10) + 6)
+            x1 = max(0, tx1 - pad_amount)
+            y1 = max(0, ty1 - pad_amount)
+            x2 = min(img.shape[1], tx2 + pad_amount)
+            y2 = min(img.shape[0], ty2 + pad_amount)
+            w = max(1, x2 - x1)
+            h = max(1, y2 - y1)
+
+        # 3. Background type detection: flat_white vs flat_dark vs complex
+        bg_type = "flat_white"
         try:
             crop = img[y1:y2, x1:x2]
             if crop.size > 0:
                 gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if crop.ndim == 3 else crop
-                border_mean = (float(np.mean(gray[:2, :])) + float(np.mean(gray[-2:, :])) + float(np.mean(gray[:, :2])) + float(np.mean(gray[:, -2:]))) / 4.0
-                if border_mean >= 195 and float(np.mean(gray)) >= 170:
-                    bg_type = "white"
+                mean_lum = float(np.mean(gray))
+                if getattr(blk, 'is_dark', False) or mean_lum < 70.0:
+                    bg_type = "flat_dark"
                 else:
-                    bg_type = "complex"
+                    border_mean = (float(np.mean(gray[:2, :])) + float(np.mean(gray[-2:, :])) + float(np.mean(gray[:, :2])) + float(np.mean(gray[:, -2:]))) / 4.0
+                    if border_mean >= 190 and mean_lum >= 165:
+                        bg_type = "flat_white"
+                    else:
+                        bg_type = "complex"
         except Exception:
             pass
 
@@ -714,6 +731,9 @@ def detect_bubbles_for_cleaning(
             "lines": b_lines,
             "polygons": [polygon] if polygon else None,
             "polygon": polygon,
+            "bubble_polygon": bubble_polygon,
+            "bubble_bbox": [x1, y1, x1 + w, y1 + h],
+            "is_dark": (bg_type == "flat_dark"),
             "bg_type": bg_type,
             "status": "pending",
             "confidence": getattr(blk, 'confidence', 0.95)

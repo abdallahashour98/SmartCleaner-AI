@@ -414,9 +414,11 @@ def classify_bubble_background(
     if np.any(border_valid):
         border_pixels = roi_gray[border_valid]
         border_white_ratio = float(np.count_nonzero(border_pixels >= 210) / len(border_pixels))
+        border_dark_ratio = float(np.count_nonzero(border_pixels < 90) / len(border_pixels))
         border_mean = float(np.mean(border_pixels))
     else:
         border_white_ratio = 1.0
+        border_dark_ratio = 0.0
         border_mean = 255.0
 
     # Screentone / Texture / Halftone check on candidate background
@@ -432,6 +434,7 @@ def classify_bubble_background(
         "overall_median": round(overall_median, 1),
         "dark_ratio": round(dark_ratio, 3),
         "border_white_ratio": round(border_white_ratio, 3),
+        "border_dark_ratio": round(border_dark_ratio, 3),
         "border_mean": round(border_mean, 1),
         "col_diff": round(mean_col_diff, 1),
         "edge_density": round(bg_edge_density, 3)
@@ -458,6 +461,22 @@ def classify_bubble_background(
 
     if is_flat_white:
         return "flat_white", stats
+
+    # Reliable Flat Dark Verification (solid dark / black speech bubbles with white text):
+    # 1. Dark ratio >= 55% (white letters take up 20-35% of dark speech bubbles)
+    # 2. Border perimeter is dark (>= 55%) or overall median is dark (<= 70.0)
+    # 3. Overall median brightness <= 85.0 and overall mean <= 95.0
+    # 4. No heavy colored tint (col_diff <= 25.0)
+    is_flat_dark = (
+        (dark_ratio >= 0.55 or (bubble is not None and (bubble.get("is_dark", False) or bubble.get("bg_type") in ("flat_dark", "dark", "black")))) and
+        (border_dark_ratio >= 0.55 or overall_median <= 70.0) and
+        overall_median <= 85.0 and
+        overall_mean <= 95.0 and
+        mean_col_diff <= 25.0
+    )
+
+    if is_flat_dark:
+        return "flat_dark", stats
 
     # Screentone / Halftone
     if bg_edge_density > 0.05 or (overall_mean > 160.0 and total_white_ratio < 0.50):
@@ -536,7 +555,11 @@ def generate_bubble_lasso_polygons(lines: list, line_gap_threshold: float = 2.0)
 def compute_safe_bubble_text_mask(
     gray_roi: np.ndarray,
     initial_text_mask: Optional[np.ndarray],
-    dilation: int = 5
+    dilation: int = 5,
+    bubble_polygon: Optional[list] = None,
+    bx: int = 0,
+    by: int = 0,
+    is_dark: bool = False
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Computes a smart adaptive text mask and a protective speech bubble border shield.
@@ -544,8 +567,9 @@ def compute_safe_bubble_text_mask(
     1. Captures 100% of all text strokes, dots, punctuation marks, and anti-aliased subpixels
        using connected components inside the bubble text zone (zero residual specks).
     2. Identifies speech bubble borders, panel contours, spikes, and dividing lines.
-    3. Builds a protected border shield with a safety buffer that strictly prevents erosion (0px erased).
-    4. Expands text with requested padding/dilation while strictly respecting the border shield.
+    3. If bubble_polygon is provided (e.g. from YOLO11-seg), creates an Inner Safety Barrier
+       by eroding the polygon by 3px, strictly forbidding the mask from touching the outer border.
+    4. Expands text with requested padding/dilation while strictly respecting the border shield & barrier.
     
     :return: (safe_clean_mask, border_shield)
     """
@@ -554,10 +578,34 @@ def compute_safe_bubble_text_mask(
         init_m = initial_text_mask.copy() if initial_text_mask is not None else np.zeros((bh, bw), dtype=np.uint8)
         return init_m, np.zeros((bh, bw), dtype=np.uint8)
 
-    # Adaptive ink thresholding
-    if np.mean(gray_roi) < 100:
+    # 1. Inner Safety Barrier from YOLO11 Segmentation Polygon
+    inner_safety_barrier = np.ones((bh, bw), dtype=np.uint8) * 255
+    poly_mask = np.zeros((bh, bw), dtype=np.uint8)
+    has_poly = False
+    if bubble_polygon and len(bubble_polygon) >= 3:
+        try:
+            pts = np.array(bubble_polygon, dtype=np.float32)
+            # If coordinates are global page coords, convert to ROI local coordinates
+            if np.max(pts[:, 0]) > bw or np.max(pts[:, 1]) > bh:
+                pts[:, 0] -= bx
+                pts[:, 1] -= by
+            local_poly = np.clip(pts, [0, 0], [bw - 1, bh - 1]).astype(np.int32)
+            cv2.fillPoly(poly_mask, [local_poly], 255)
+            # Erode bubble polygon by 4px so safety barrier is strictly inside the bubble interior
+            inner_safety_barrier = cv2.erode(poly_mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
+            has_poly = True
+        except Exception:
+            inner_safety_barrier = np.ones((bh, bw), dtype=np.uint8) * 255
+            has_poly = False
+    else:
+        poly_mask = np.ones((bh, bw), dtype=np.uint8) * 255
+        inner_safety_barrier = cv2.erode(poly_mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
+
+    # 2. Adaptive ink thresholding
+    is_inverted = bool(is_dark or (np.median(gray_roi) < 90) or (np.mean(gray_roi) < 85))
+    if is_inverted:
         # Inverted bubble (white text on dark background)
-        ink_binary = (gray_roi > 140).astype(np.uint8) * 255
+        ink_binary = (gray_roi > 130).astype(np.uint8) * 255
     else:
         bg_val = float(np.percentile(gray_roi, 85))
         ink_thresh = min(235, max(140, int(bg_val - 25)))
@@ -568,10 +616,16 @@ def compute_safe_bubble_text_mask(
     border_mask = np.zeros((bh, bw), dtype=np.uint8)
     text_ink_mask = np.zeros((bh, bw), dtype=np.uint8)
 
+    # 3. If polygon is available, the true bubble boundary zone is along poly_mask perimeter + outer region
+    if has_poly:
+        bubble_perimeter_zone = poly_mask - cv2.erode(poly_mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11)))
+        outer_zone = (poly_mask == 0)
+        border_mask = border_mask | (ink_binary & ((bubble_perimeter_zone > 0) | outer_zone))
+
     has_text_ref = initial_text_mask is not None and np.any(initial_text_mask > 0)
     if has_text_ref:
-        # Search zone for punctuation marks near text
-        k_punct_search = cv2.dilate(initial_text_mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (45, 45)))
+        # Search zone for punctuation marks near text (strictly near text, never far-away spikes)
+        k_punct_search = cv2.dilate(initial_text_mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (25, 25)))
     else:
         k_punct_search = np.zeros((bh, bw), dtype=np.uint8)
 
@@ -583,47 +637,27 @@ def compute_safe_bubble_text_mask(
         area = ink_stats[i, cv2.CC_STAT_AREA]
         comp = (ink_labels == i)
 
-        solidity = area / float(cw * ch) if (cw * ch > 0) else 1.0
         touches_edge = (left <= 3 or top <= 3 or left + cw >= bw - 3 or top + ch >= bh - 3)
+        spans_bubble = (cw > 0.75 * bw and ch > 0.65 * bh)
 
-        # Bubble borders/curves are elongated thin strokes (low solidity) or touch ROI perimeter edges
-        is_border = (
-            (max(cw, ch) > 75 and solidity < 0.25)
-            or (max(cw, ch) > 120)
-            or (touches_edge and (cw > 50 or ch > 50 or area > 300))
-        )
+        # Bubble borders are large structural strokes touching ROI edges or spanning the bubble
+        is_border = (touches_edge and (cw > 40 or ch > 40 or area > 300)) or spans_bubble
+
+        if is_border:
+            border_mask[comp] = 255
+            continue
 
         if has_text_ref:
-            # Check direct intersection with text reference
             intersects_text = np.any(comp & (initial_text_mask > 0))
-            
-            # Check if it is a punctuation mark / dot / dash / symbol (e.g. ? ! . , ... - ~ " ' :)
-            # Any unattached ink glyph inside the speech bubble that is not an outer border belongs to text/punctuation
-            is_punctuation = (
-                (not is_border and not touches_edge and max(cw, ch) <= 95 and area <= 2500)
-                or (area <= 400 and max(cw, ch) <= 45 and np.any(comp & (k_punct_search > 0)))
-            )
-            
-            if (intersects_text or is_punctuation) and not is_border:
-                if touches_edge and (cw > 50 or ch > 50 or area > 300):
-                    # Text stroke merged with subtle background gradient / border at edge!
-                    # Preserve text inside the expanded text zone, assign outer tail to border
-                    k_zone = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (19, 19))
-                    text_zone = cv2.dilate(initial_text_mask, k_zone)
-                    text_zone_comp = comp & (text_zone > 0)
-                    border_zone_comp = comp & (text_zone == 0)
-                    if np.any(text_zone_comp):
-                        text_ink_mask[text_zone_comp] = 255
-                    if np.any(border_zone_comp):
-                        border_mask[border_zone_comp] = 255
-                else:
-                    text_ink_mask[comp] = 255
+            # Punctuation must be small and strictly in the vicinity of the text
+            is_punctuation = (area <= 500 and max(cw, ch) <= 55 and np.any(comp & (k_punct_search > 0)))
+
+            if intersects_text or is_punctuation:
+                text_ink_mask[comp] = 255
             else:
-                # Outside text reference -> it is bubble border / panel line / artwork!
                 border_mask[comp] = 255
         else:
-            # Fallback when no text polygons provided: central ink is text, perimeter ink is border
-            if is_border or touches_edge or area > (bw * bh * 0.2):
+            if area > (bw * bh * 0.2):
                 border_mask[comp] = 255
             else:
                 text_ink_mask[comp] = 255
@@ -635,12 +669,10 @@ def compute_safe_bubble_text_mask(
     # Effective dilation for text ink
     eff_d = max(4, dilation if dilation > 0 else 4)
     k_text = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (eff_d * 2 + 1, eff_d * 2 + 1))
-    
-    # Expand text ink with padding
     dilated_text = cv2.dilate(text_ink_mask, k_text, iterations=1)
 
-    # Safe mask has full padding, never touches shield, and 100% preserves border lines
-    safe_mask = ((dilated_text & (~shield)) | text_ink_mask) & (~border_mask)
+    # Safe mask has full padding, never touches shield or outer border, and strictly respects inner_safety_barrier
+    safe_mask = ((dilated_text & (~shield)) | text_ink_mask) & (~border_mask) & inner_safety_barrier
     return safe_mask, shield
 
 
@@ -663,18 +695,27 @@ def create_bubble_border_shield(
 
 
 def clean_flat_bubble_locally(
-    img_bgr: np.ndarray,
+    img_bgr: Union[np.ndarray, Image.Image],
     bubble: dict,
     classification: str = "flat_white",
     dilation: int = 5,
     padding: int = 2
-) -> np.ndarray:
+) -> Union[np.ndarray, Image.Image]:
     """
-    Cleans text inside a flat white or solid color bubble locally with instant execution (< 0.002s).
+    Cleans text inside a flat white or solid dark/color bubble locally with instant execution (< 0.002s).
     Captures 100% of text strokes, dots, and punctuation marks without leaving any residue,
     while strictly protecting outer speech bubble outlines and dividing borders (0px erosion).
+    Supports both np.ndarray and PIL.Image seamlessly.
     """
-    h_img, w_img = img_bgr.shape[:2]
+    is_pil = isinstance(img_bgr, Image.Image)
+    if is_pil:
+        cv_img = cv2.cvtColor(np.array(img_bgr.convert("RGB")), cv2.COLOR_RGB2BGR)
+    elif isinstance(img_bgr, np.ndarray):
+        cv_img = img_bgr.copy()
+    else:
+        raise ValueError(f"Unsupported image input type: {type(img_bgr)}")
+
+    h_img, w_img = cv_img.shape[:2]
     bx = max(0, int(bubble.get("x", 0)))
     by = max(0, int(bubble.get("y", 0)))
     bw = min(w_img - bx, int(bubble.get("width", 0)))
@@ -683,13 +724,22 @@ def clean_flat_bubble_locally(
     if bw <= 4 or bh <= 4:
         return img_bgr
 
-    roi_bgr = img_bgr[by : by + bh, bx : bx + bw].copy()
+    roi_bgr = cv_img[by : by + bh, bx : bx + bw].copy()
     gray_roi = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2GRAY) if len(roi_bgr.shape) == 3 else roi_bgr.copy()
+
+    # Detect dark bubble vs white bubble
+    is_dark = (
+        bubble.get("is_dark", False)
+        or bubble.get("bg_type") in ("flat_dark", "dark", "black")
+        or classification in ("flat_dark", "dark", "black")
+        or (float(np.mean(gray_roi)) < 75.0)
+        or (float(np.median(gray_roi)) < 70.0)
+    )
 
     local_text_mask = np.zeros((bh, bw), dtype=np.uint8)
     has_polys = False
 
-    # Prefer lines first (tightest contour per individual text line, avoiding bridging gaps)
+    # 1. Fill individual line contours
     lines = bubble.get("lines", [])
     if lines and isinstance(lines, (list, tuple)) and len(lines) > 0:
         for line_poly in lines:
@@ -707,6 +757,7 @@ def clean_flat_bubble_locally(
             except Exception:
                 pass
 
+    # 2. Text Polygons (lasso / convex hull)
     if not has_polys:
         polygons = bubble.get("polygons")
         if not polygons and bubble.get("lines"):
@@ -730,8 +781,7 @@ def clean_flat_bubble_locally(
                 except Exception:
                     pass
 
-    # Ensure text_x, text_y, text_width, text_height is also included in local_text_mask
-    # so that trailing punctuation marks (e.g. ?, !, ..., -) detected by the block detector are always included
+    # 3. Text bounding box reference (strictly text bounds, never full bubble!)
     tx = bubble.get("text_x")
     ty = bubble.get("text_y")
     tw = bubble.get("text_width")
@@ -743,38 +793,64 @@ def clean_flat_bubble_locally(
         ltw = min(bw - ltx, int(tw))
         lth = min(bh - lty, int(th))
         if ltw > 0 and lth > 0:
-            local_text_mask[lty : lty + lth, ltx : ltx + ltw] = 255
-            has_polys = True
-    elif not has_polys:
-        inset_x = int(bw * 0.15) if bw > 30 else 0
-        inset_y = int(bh * 0.15) if bh > 30 else 0
-        ltx = max(0, inset_x)
-        lty = max(0, inset_y)
-        ltw = min(bw - ltx, max(1, bw - (inset_x * 2)))
-        lth = min(bh - lty, max(1, bh - (inset_y * 2)))
-        if ltw > 0 and lth > 0:
-            local_text_mask[lty : lty + lth, ltx : ltx + ltw] = 255
+            if not has_polys:
+                local_text_mask[lty : lty + lth, ltx : ltx + ltw] = 255
+            else:
+                # Include ink strokes near the text polygons following text contours
+                # (captures punctuation like ?, !, ..., - without invading oval/spiky corners)
+                search_zone = cv2.dilate(local_text_mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15)))
+                if is_dark:
+                    ink_zone = ((gray_roi > 140) & (search_zone > 0)).astype(np.uint8) * 255
+                else:
+                    bg_val = float(np.percentile(gray_roi, 85))
+                    ink_thresh = min(235, max(140, int(bg_val - 25)))
+                    ink_zone = ((gray_roi < ink_thresh) & (search_zone > 0)).astype(np.uint8) * 255
+                local_text_mask = np.bitwise_or(local_text_mask, ink_zone)
 
-    # Compute safe mask with generous text padding and 100% border preservation
+    bubble_poly = bubble.get("bubble_polygon")
     eff_dilation = max(5, dilation if dilation > 0 else 5, bubble.get("mask_padding", 0), padding)
-    safe_clean_mask, shield = compute_safe_bubble_text_mask(gray_roi, local_text_mask, dilation=eff_dilation)
 
-    # Clean the masked text strokes
-    if classification == "flat_white":
-        # Adaptive fill color: sample background color inside the bubble
+    safe_clean_mask, shield = compute_safe_bubble_text_mask(
+        gray_roi=gray_roi,
+        initial_text_mask=local_text_mask,
+        dilation=eff_dilation,
+        bubble_polygon=bubble_poly,
+        bx=bx,
+        by=by,
+        is_dark=is_dark
+    )
+
+    # 4. Clean the masked text strokes
+    if is_dark:
+        # Dark bubble: sample dark background color inside bubble and fill text
+        bg_mask = (gray_roi < 85) & (shield == 0) & (safe_clean_mask == 0)
+        if not np.any(bg_mask):
+            bg_mask = (shield == 0) & (safe_clean_mask == 0)
+        if np.any(bg_mask):
+            bg_col = np.median(roi_bgr[bg_mask], axis=0).astype(np.uint8).tolist()
+            if all(c <= 25 for c in bg_col):
+                bg_col = [0, 0, 0]
+        else:
+            bg_col = [0, 0, 0]
+        roi_bgr[safe_clean_mask > 0] = bg_col
+    elif classification == "flat_white" or bubble.get("bg_type") == "flat_white":
+        # White bubble: sample white background color
         bg_mask = (gray_roi > 190) & (shield == 0) & (safe_clean_mask == 0)
         if np.any(bg_mask):
             bg_col = np.median(roi_bgr[bg_mask], axis=0).astype(np.uint8).tolist()
-            if all(c >= 240 for c in bg_col):
+            if all(c >= 235 for c in bg_col):
                 bg_col = [255, 255, 255]
         else:
             bg_col = [255, 255, 255]
         roi_bgr[safe_clean_mask > 0] = bg_col
     else:
+        # Complex / screentone bubble: Telea inpaint fallback
         roi_bgr = cv2.inpaint(roi_bgr, safe_clean_mask, 3, cv2.INPAINT_TELEA)
 
-    img_bgr[by : by + bh, bx : bx + bw] = roi_bgr
-    return img_bgr
+    cv_img[by : by + bh, bx : bx + bw] = roi_bgr
+    if is_pil:
+        return Image.fromarray(cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB))
+    return cv_img
 
 
 def generate_page_mask(
@@ -869,8 +945,9 @@ def generate_page_mask(
             ltw = min(bw - ltx, int(tw))
             lth = min(bh - lty, int(th))
             if ltw > 0 and lth > 0:
-                local_mask[lty : lty + lth, ltx : ltx + ltw] = 255
-                has_polys = True
+                if not has_polys:
+                    local_mask[lty : lty + lth, ltx : ltx + ltw] = 255
+                    has_polys = True
         elif not has_polys:
             inset_x = int(bw * 0.15) if bw > 30 else 0
             inset_y = int(bh * 0.15) if bh > 30 else 0
@@ -885,7 +962,15 @@ def generate_page_mask(
         if img_bgr is not None and img_bgr.shape[0] >= (by + bh) and img_bgr.shape[1] >= (bx + bw):
             roi = img_bgr[by : by + bh, bx : bx + bw]
             gray_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY) if len(roi.shape) == 3 else roi
-            safe_bubble_mask, _ = compute_safe_bubble_text_mask(gray_roi, local_mask, dilation=dilation)
+            safe_bubble_mask, _ = compute_safe_bubble_text_mask(
+                gray_roi,
+                local_mask,
+                dilation=dilation,
+                bubble_polygon=b.get("bubble_polygon"),
+                bx=bx,
+                by=by,
+                is_dark=bool(b.get("is_dark", False) or b.get("bg_type") == "flat_dark")
+            )
         else:
             safe_bubble_mask = cv2.dilate(local_mask, kernel, iterations=1)
 
@@ -947,12 +1032,17 @@ def smart_adaptive_inpaint_page(
         if bt in ("complex", "screentone", "art", "not_white"):
             complex_bubbles.append(b)
             continue
-        if bt == "white":
+        if bt in ("white", "flat_white"):
             flat_bubbles.append((b, "flat_white"))
+            continue
+        if bt in ("flat_dark", "dark", "black") or b.get("is_dark", False):
+            flat_bubbles.append((b, "flat_dark"))
             continue
         cls_type, stats = classify_bubble_background(img_bgr, b, padding=padding)
         if cls_type == "flat_white" or stats.get("total_white_ratio", 0) >= 0.65:
             flat_bubbles.append((b, "flat_white"))
+        elif cls_type == "flat_dark" or stats.get("dark_ratio", 0) >= 0.65:
+            flat_bubbles.append((b, "flat_dark"))
         else:
             complex_bubbles.append(b)
 
@@ -1240,17 +1330,24 @@ def inpaint_single_bubble(
         return base_page_pil
 
     is_explicitly_complex = bubble.get("bg_type") in ("complex", "screentone", "art", "not_white")
-    is_explicitly_white = bubble.get("bg_type") == "white"
+    is_explicitly_white = bubble.get("bg_type") in ("white", "flat_white")
+    is_explicitly_dark = bubble.get("bg_type") in ("dark", "flat_dark", "black") or bubble.get("is_dark", False)
 
-    # Fast Local Clean for Flat White Bubbles (skipped if explicitly marked non-white/complex)
-    if adaptive and (is_explicitly_white or not is_explicitly_complex):
+    # Fast Local Clean for Flat White & Flat Dark Bubbles (skipped if explicitly marked non-white/complex)
+    if adaptive and (is_explicitly_white or is_explicitly_dark or not is_explicitly_complex):
         img_bgr = cv2.cvtColor(np.array(base_page_pil.convert("RGB")), cv2.COLOR_RGB2BGR)
         if is_explicitly_white:
             cleaned_bgr = clean_flat_bubble_locally(img_bgr, bubble, classification="flat_white", dilation=dilation)
             return Image.fromarray(cv2.cvtColor(cleaned_bgr, cv2.COLOR_BGR2RGB))
+        if is_explicitly_dark:
+            cleaned_bgr = clean_flat_bubble_locally(img_bgr, bubble, classification="flat_dark", dilation=dilation)
+            return Image.fromarray(cv2.cvtColor(cleaned_bgr, cv2.COLOR_BGR2RGB))
         cls_type, stats = classify_bubble_background(img_bgr, bubble)
         if cls_type == "flat_white" or stats.get("total_white_ratio", 0) >= 0.65:
             cleaned_bgr = clean_flat_bubble_locally(img_bgr, bubble, classification="flat_white", dilation=dilation)
+            return Image.fromarray(cv2.cvtColor(cleaned_bgr, cv2.COLOR_BGR2RGB))
+        if cls_type == "flat_dark" or stats.get("dark_ratio", 0) >= 0.60:
+            cleaned_bgr = clean_flat_bubble_locally(img_bgr, bubble, classification="flat_dark", dilation=dilation)
             return Image.fromarray(cv2.cvtColor(cleaned_bgr, cv2.COLOR_BGR2RGB))
 
     # Complex Art / Non-White / Full AI Mode: Route ROI crop directly to IOPaint server

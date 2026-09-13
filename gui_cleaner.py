@@ -1141,8 +1141,8 @@ class PageViewerWidget(QGraphicsView):
         self.setScene(self.scene)
         self.setRenderHint(QPainter.Antialiasing)
         self.setRenderHint(QPainter.SmoothPixmapTransform)
-        self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
-        self.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
+        self.setTransformationAnchor(QGraphicsView.NoAnchor)
+        self.setResizeAnchor(QGraphicsView.AnchorViewCenter)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.setMouseTracking(True)
@@ -1380,18 +1380,59 @@ class PageViewerWidget(QGraphicsView):
             self.scene.removeItem(self._lasso_path_item)
         self._lasso_path_item = None
 
+    def _zoom_at_point(self, factor: float, pos: QPoint = None):
+        """
+        Precise, cursor-anchored (or viewport-center-anchored) zoom.
+        Prevents view jumps, keeps the scene point under the anchor strictly locked,
+        and enforces safe zoom limits so the scrollbar never collapses to 0.
+        """
+        if abs(factor - 1.0) < 1e-4:
+            return
+
+        if pos is None:
+            pos = self.viewport().rect().center()
+
+        min_scale = 0.02
+        max_scale = 35.0
+        if self.scene and not self.scene.sceneRect().isEmpty():
+            sr = self.scene.sceneRect()
+            vr = self.viewport().rect()
+            if vr.width() > 0 and vr.height() > 0:
+                fit_w = vr.width() / max(1.0, sr.width())
+                fit_h = vr.height() / max(1.0, sr.height())
+                # Never allow zooming out smaller than 80% of fit-to-screen
+                min_scale = max(0.005, min(fit_w, fit_h) * 0.8)
+
+        current_scale = self.transform().m11()
+        new_scale = current_scale * factor
+        new_scale = max(min_scale, min(max_scale, new_scale))
+        actual_factor = new_scale / current_scale
+
+        if abs(actual_factor - 1.0) < 1e-4:
+            return
+
+        old_scene_pt = self.mapToScene(pos)
+        self.scale(actual_factor, actual_factor)
+        new_mouse_pt = self.mapFromScene(old_scene_pt)
+        delta = new_mouse_pt - pos
+        self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() + delta.x())
+        self.verticalScrollBar().setValue(self.verticalScrollBar().value() + delta.y())
+
     def zoom_in(self):
-        self.scale(1.25, 1.25)
+        self._zoom_at_point(1.25, pos=None)
 
     def zoom_out(self):
-        self.scale(0.8, 0.8)
+        self._zoom_at_point(0.8, pos=None)
 
     def reset_fit(self):
         if self.scene and not self.scene.sceneRect().isEmpty():
             self.fitInView(self.scene.sceneRect(), Qt.KeepAspectRatio)
 
     def reset_100(self):
+        curr_center = self.mapToScene(self.viewport().rect().center())
         self.resetTransform()
+        if self.scene and not self.scene.sceneRect().isEmpty():
+            self.centerOn(curr_center)
 
     def _clear_target_badge(self):
         if hasattr(self, "_target_badge_items") and self._target_badge_items:
@@ -1427,12 +1468,35 @@ class PageViewerWidget(QGraphicsView):
                 pass
 
     def wheelEvent(self, event):
-        zoom_in_factor = 1.2
-        zoom_out_factor = 1 / zoom_in_factor
-        if event.angleDelta().y() > 0:
-            self.scale(zoom_in_factor, zoom_in_factor)
-        else:
-            self.scale(zoom_out_factor, zoom_out_factor)
+        # Shift + Wheel: scroll horizontally
+        if event.modifiers() & Qt.ShiftModifier:
+            delta_y = event.angleDelta().y() or event.angleDelta().x()
+            self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() - delta_y)
+            event.accept()
+            return
+        # Alt + Wheel: scroll vertically
+        elif event.modifiers() & Qt.AltModifier:
+            delta_y = event.angleDelta().y()
+            self.verticalScrollBar().setValue(self.verticalScrollBar().value() - delta_y)
+            event.accept()
+            return
+
+        delta_y = event.angleDelta().y()
+        if delta_y == 0:
+            delta_x = event.angleDelta().x()
+            if delta_x != 0:
+                self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() - delta_x)
+                event.accept()
+            return
+
+        # Smooth, natural zoom factor (1.15 per wheel step)
+        zoom_in_factor = 1.15
+        zoom_out_factor = 1.0 / zoom_in_factor
+        factor = zoom_in_factor if delta_y > 0 else zoom_out_factor
+
+        mouse_pos = event.position().toPoint()
+        self._zoom_at_point(factor, pos=mouse_pos)
+        event.accept()
 
     def highlight_bubble(self, index: int, center_on_item: bool = True):
         self.selected_idx = index
@@ -3678,7 +3742,7 @@ class BatchCleanerWorker(QThread):
     current_progress_signal = Signal(int, int, str)
     finished_signal = Signal(bool, object)
 
-    def __init__(self, image_paths: list, mask_padding: int = 0, snap_to_bubbles: bool = False, iopaint_enabled: bool = True, iopaint_url: str = "http://127.0.0.1:8080", iopaint_model: str = "anime-lama", iopaint_dilation: int = 5, iopaint_adaptive: bool = True, device: str = "auto", parent=None):
+    def __init__(self, image_paths: list, mask_padding: int = 0, snap_to_bubbles: bool = True, iopaint_enabled: bool = True, iopaint_url: str = "http://127.0.0.1:8080", iopaint_model: str = "anime-lama", iopaint_dilation: int = 5, iopaint_adaptive: bool = True, device: str = "auto", parent=None):
         super().__init__(parent)
         self.image_paths = image_paths
         self.mask_padding = mask_padding
@@ -3796,7 +3860,8 @@ class BatchCleanerWorker(QThread):
                             cv_img = cv2.imdecode(np.fromfile(img_p, dtype=np.uint8), cv2.IMREAD_COLOR)
                             if cv_img is not None:
                                 for b in bubbles:
-                                    cv_img = clean_flat_bubble_locally(cv_img, b, classification="flat_white", dilation=self.iopaint_dilation)
+                                    b_cls = "flat_dark" if (b.get("is_dark") or b.get("bg_type") in ("flat_dark", "dark", "black")) else "flat_white"
+                                    cv_img = clean_flat_bubble_locally(cv_img, b, classification=b_cls, dilation=self.iopaint_dilation)
                                     b["status"] = "cleaned"
                                 stem = Path(img_p).stem
                                 ext = Path(img_p).suffix or ".png"
@@ -4547,6 +4612,11 @@ class CleanerGUI(QMainWindow):
         self.iopaint_adaptive_cb.setChecked(self.config.get("iopaint_adaptive", True))
         self.iopaint_adaptive_cb.setStyleSheet("color: #38bdf8; font-weight: bold; font-size: 11px;")
 
+        self.snap_to_bubbles_cb = QCheckBox("🎯 YOLO Bubble Detection")
+        self.snap_to_bubbles_cb.setChecked(self.config.get("snap_to_bubbles", True))
+        self.snap_to_bubbles_cb.setStyleSheet("color: #c084fc; font-weight: bold; font-size: 11px;")
+        self.snap_to_bubbles_cb.setToolTip("Uses YOLO11 & YOLOv8 to detect speech bubble boundaries and strictly protect outer borders from being erased.")
+
         self.iopaint_status_dot = QLabel("⚪")
         self.iopaint_status_label = QLabel("IOPaint: Offline")
         self.iopaint_status_label.setStyleSheet("color: #94a3b8; font-size: 11px; font-weight: 600;")
@@ -4560,6 +4630,7 @@ class CleanerGUI(QMainWindow):
 
         row_iopaint_top.addWidget(self.iopaint_enabled_cb)
         row_iopaint_top.addWidget(self.iopaint_adaptive_cb)
+        row_iopaint_top.addWidget(self.snap_to_bubbles_cb)
         row_iopaint_top.addStretch()
         row_iopaint_top.addWidget(self.iopaint_status_dot)
         row_iopaint_top.addWidget(self.iopaint_status_label)
@@ -5443,7 +5514,7 @@ class CleanerGUI(QMainWindow):
         iopaint_url = self.iopaint_url_input.text().strip() or "http://127.0.0.1:8080"
         iopaint_model = self.iopaint_model_combo.currentText().strip() or "anime-lama"
         iopaint_dilation = self.iopaint_dilation_spin.value()
-        snap_to_bubbles = False
+        snap_to_bubbles = self.snap_to_bubbles_cb.isChecked() if hasattr(self, 'snap_to_bubbles_cb') else self.config.get("snap_to_bubbles", True)
         mask_padding = self.mask_padding_spin.value()
         self.mask_padding = mask_padding
 

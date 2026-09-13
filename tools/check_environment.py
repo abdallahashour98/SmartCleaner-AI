@@ -77,6 +77,7 @@ def run_checks():
     print("\n[*] Checking AI Model Files:")
     models_dir = BASE_DIR / "models"
     models_to_check = [
+        "yolo11n-manga109-bubble.pt",
         "comic-speech-bubble-detector.pt",
         "comictextdetector.pt",
         "comictextdetector.pt.onnx"
