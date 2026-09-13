@@ -666,8 +666,8 @@ def compute_safe_bubble_text_mask(
     k_shield = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     shield = cv2.dilate(border_mask, k_shield)
 
-    # Effective dilation for text ink (5px radius eliminates anti-aliasing edge artifacts)
-    eff_d = max(5, dilation if dilation > 0 else 5)
+    # Effective dilation for text ink (8px radius brush eliminates anti-aliasing edge artifacts & joins letters smoothly)
+    eff_d = max(8, dilation if dilation > 0 else 8)
     k_text = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (eff_d * 2 + 1, eff_d * 2 + 1))
     dilated_text = cv2.dilate(text_ink_mask, k_text, iterations=1)
 
