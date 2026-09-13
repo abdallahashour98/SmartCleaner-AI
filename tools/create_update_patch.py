@@ -53,6 +53,7 @@ def create_patch(version: str, notes: str, download_url_base: str = ""):
         "gui_cleaner.py",
         "fast_cleaner.py",
         "server_api.py",
+        "Fix_Update.bat",
         "requirements.txt",
         "pyrightconfig.json"
     ]
