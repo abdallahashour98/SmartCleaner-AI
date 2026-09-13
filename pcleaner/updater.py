@@ -366,7 +366,7 @@ class UpdateDialog(QDialog):
 
         creationflags = 0
         if os.name == "nt":
-            creationflags = subprocess.CREATE_NEW_CONSOLE | subprocess.DETACHED_PROCESS
+            creationflags = subprocess.CREATE_NEW_CONSOLE
 
         try:
             subprocess.Popen(cmd, cwd=str(BASE_DIR), creationflags=creationflags)

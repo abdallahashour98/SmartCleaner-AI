@@ -3,8 +3,8 @@
   "release_date": "2026-09-13",
   "release_notes": "تحديث رئيسي v1.1.0: إضافة محرك YOLO المزدوج لاكتشاف الفقاعات، حماية أطراف الفقاعات الشوكية، تنظيف محلي فائق السرعة للفقاعات السوداء، وإصلاح ثبات الزوم ببكرة الماوس في شاشة المراجعة.",
   "patch_url": "https://raw.githubusercontent.com/abdallahashour98/SmartCleaner-AI-Updata/main/SmartCleaner_Patch_v1.1.0.zip",
-  "sha256": "e4883e53a36066dfe988e316b01fa9feb4a02687f44895d2c072990ece891f97",
-  "size_bytes": 496455,
+  "sha256": "4df9e3aa015482964a16fe2483cebff565d1c18aaad663531fb34a26d7b3101a",
+  "size_bytes": 496413,
   "size_mb": 0.47,
   "min_runtime_version": "3.10"
 }

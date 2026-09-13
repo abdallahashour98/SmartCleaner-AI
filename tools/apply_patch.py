@@ -130,7 +130,7 @@ def apply_patch(patch_zip: str, target_dir: str, caller_pid: int, restart_cmd: s
         time.sleep(0.5)
         creationflags = 0
         if os.name == "nt":
-            creationflags = subprocess.CREATE_NEW_CONSOLE | subprocess.DETACHED_PROCESS
+            creationflags = subprocess.CREATE_NEW_CONSOLE
 
         try:
             subprocess.Popen(restart_cmd, shell=True, cwd=str(target_path), creationflags=creationflags)
