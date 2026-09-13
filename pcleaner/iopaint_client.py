@@ -666,13 +666,22 @@ def compute_safe_bubble_text_mask(
     k_shield = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     shield = cv2.dilate(border_mask, k_shield)
 
-    # Effective dilation for text ink
-    eff_d = max(4, dilation if dilation > 0 else 4)
+    # Effective dilation for text ink (5px radius eliminates anti-aliasing edge artifacts)
+    eff_d = max(5, dilation if dilation > 0 else 5)
     k_text = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (eff_d * 2 + 1, eff_d * 2 + 1))
     dilated_text = cv2.dilate(text_ink_mask, k_text, iterations=1)
 
+    # Clean residual anti-aliased edge shadows & JPEG ringing near text strokes
+    k_shadow = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (eff_d * 2 + 7, eff_d * 2 + 7))
+    near_text = cv2.dilate(text_ink_mask, k_shadow)
+    if is_dark:
+        shadow_mask = ((near_text > 0) & (gray_roi > 20) & (shield == 0) & (~border_mask)).astype(np.uint8) * 255
+    else:
+        bg_val = float(np.percentile(gray_roi, 85))
+        shadow_mask = ((near_text > 0) & (gray_roi < min(252, int(bg_val - 2))) & (shield == 0) & (~border_mask)).astype(np.uint8) * 255
+
     # Safe mask has full padding, never touches shield or outer border, and strictly respects inner_safety_barrier
-    safe_mask = ((dilated_text & (~shield)) | text_ink_mask) & (~border_mask) & inner_safety_barrier
+    safe_mask = ((dilated_text | shadow_mask) & (~shield) | text_ink_mask) & (~border_mask) & inner_safety_barrier
     return safe_mask, shield
 
 

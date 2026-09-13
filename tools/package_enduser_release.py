@@ -92,6 +92,7 @@ def build_release(
     top_files = [
         "SmartCleaner.bat",
         "SmartCleaner_Debug.bat",
+        "Fix_Update.bat",
         "Install_Dependencies.bat",
         "Install_Visual_Cpp.bat",
         "Run_SmartCleaner.bat",
@@ -123,13 +124,13 @@ def build_release(
         "last_export_dir": "",
         "last_launcher_dir": "",
         "iopaint_launcher_path": "",
-        "mask_padding": 3,
-        "snap_to_bubbles": False,
+        "mask_padding": 0,
+        "snap_to_bubbles": True,
         "iopaint_enabled": False,
         "iopaint_adaptive": True,
         "iopaint_server_url": "http://127.0.0.1:8080",
         "iopaint_model": "anime-lama",
-        "iopaint_dilation": 5,
+        "iopaint_dilation": 0,
         "use_remote_server": False,
         "remote_server_url": "",
         "shortcuts": {
@@ -259,6 +260,7 @@ def build_release(
         fix_files = [
             "SmartCleaner.bat",
             "SmartCleaner_Debug.bat",
+            "Fix_Update.bat",
             "Install_Dependencies.bat",
             "Install_Visual_Cpp.bat",
             "Run_SmartCleaner.bat",
@@ -268,6 +270,7 @@ def build_release(
             "requirements.txt",
             "tools/launcher.py",
             "tools/check_environment.py",
+            "tools/quick_update.py",
             "pcleaner/updater.py"
         ]
         with zipfile.ZipFile(fix_zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
@@ -296,17 +299,28 @@ def build_release(
 
         patch_sha = calculate_sha256(patch_path)
         patch_size = patch_path.stat().st_size
+
+        manifest_path = UPDATES_DIR / "version_manifest.json"
+        release_notes = f"تحديث شامل SmartCleaner-AI v{version} مع مشغل التشغيل الذكي التلقائي وحل مشاكل الترميز."
+        if manifest_path.exists():
+            try:
+                with open(manifest_path, "r", encoding="utf-8") as f:
+                    old_manifest = json.load(f)
+                    if old_manifest.get("release_notes"):
+                        release_notes = old_manifest["release_notes"]
+            except Exception:
+                pass
+
         manifest = {
             "latest_version": version,
             "release_date": time.strftime("%Y-%m-%d"),
-            "release_notes": f"تحديث شامل SmartCleaner-AI v{version} مع مشغل التشغيل الذكي التلقائي وحل مشاكل الترميز.",
-            "patch_url": f"https://raw.githubusercontent.com/abdallahashour98/SmartCleaner-AI/main/updates/{patch_name}",
+            "release_notes": release_notes,
+            "patch_url": f"https://raw.githubusercontent.com/abdallahashour98/SmartCleaner-AI-Updata/main/{patch_name}",
             "sha256": patch_sha,
             "size_bytes": patch_size,
             "size_mb": round(patch_size / (1024 * 1024), 2),
             "min_runtime_version": "3.10"
         }
-        manifest_path = UPDATES_DIR / "version_manifest.json"
         with open(manifest_path, "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2, ensure_ascii=False)
 
